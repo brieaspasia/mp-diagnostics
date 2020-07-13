@@ -1,0 +1,76 @@
+---
+title: "mp-mapping"
+author: "Brie Sherow"
+date: "08/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+#reference:https://geocompr.robinlovelace.net/adv-map.html#static-maps
+```
+
+```{r install tmap and load data}
+install.packages("tmaptools")
+install.packages("tmap")
+library(tmaptools)
+library(tmap)
+library(sf)
+library(bibliometrix)
+data("World")
+```
+
+
+```{r upload data, eval=TRUE}
+getwd()
+bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert one file to biblio df for testing
+
+# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert all files to a bibliometric data frame
+
+# names(bib)
+
+#write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
+```
+
+```{r analysis and summary}
+results <- biblioAnalysis(bib, sep=";")
+
+options(width=100)
+S <- summary(object = results, k = 10, pause = FALSE)
+```
+
+```{r join bib to world}
+MostProdCountries <- print(S$MostProdCountries)
+MostProdCountries$Articles <- as.numeric(MostProdCountries$Articles)
+
+#I need a better way to do this, because this way won't update if the order changes
+iso_a3 <- c("USA", "CHN", "ITA", "ESP", "GBR", "CAN", "AUS", "JPN",  "BRA",  "FRA")
+MostProdCountries$iso_a3 <- iso_a3
+
+#Attempt to join Summary to spatial data -- didn't work
+# test <- append_data(World, MostProdCountries, key.shp = "name", key.data = "Country",
+#   ignore.duplicates = FALSE, ignore.na = FALSE,
+#   fixed.order = is.null(key.data) && is.null(key.shp))
+
+#Example joining df to spatial data
+#append_data(shp, data, key.shp = NULL, key.data = NULL,
+#  ignore.duplicates = FALSE, ignore.na = FALSE,
+# fixed.order = is.null(key.data) && is.null(key.shp))
+
+#Joining summary to spatial data
+final <- dplyr::full_join(World, MostProdCountries, by="iso_a3")
+
+final$Articles <- as.numeric(final$Articles)
+
+
+```
+
+```{r mapping}
+tm_shape(World) +
+  tm_polygons("final") +
+  tm_symbols(col = "black", border.col = "white", size = "final$Articles")
+
+summary(MostProdCountries)
+
+?tm_symbols
+```
