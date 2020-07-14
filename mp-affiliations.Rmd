@@ -46,3 +46,12 @@ affiliations <- cbind(results$Affiliations)
 aff_frac <- print(results$Aff_frac)
 ```
 #How can I map a value column between the affiliation collaborations in the results file?
+
+# Create a country collaboration network
+```{r country collab}
+M <- metaTagExtraction(bib, Field = "AU_CO", sep = ";")
+NetMatrixM <- biblioNetwork(M, analysis = "collaboration", network = "countries", sep = ";")
+
+# Plot the network
+netM=networkPlot(NetMatrixM, n = dim(NetMatrixM)[1], Title = "Country Collaboration", type = "circle", size=TRUE, remove.multiple=FALSE,labelsize=0.7,cluster="none")
+```
