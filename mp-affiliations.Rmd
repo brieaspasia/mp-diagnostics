@@ -1,0 +1,48 @@
+---
+title: "mp-affiliations"
+author: "Brie Sherow"
+date: "14/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load libraries}
+library(bibliometrix)
+library(ggraph)
+library(circlize)
+```
+
+```{r upload data, eval=TRUE}
+getwd()
+bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+
+# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# names(bib)
+#write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
+```
+
+```{r analysis and summary}
+results <- biblioAnalysis(bib, sep=";")
+
+options(width=100)
+S <- summary(object = results, k = 10, pause = FALSE)
+```
+
+
+
+```{r university collab}
+
+NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";")
+net=networkPlot(NetMatrix,  n = 50, Title = "Edu collaboration",type = "auto", size=10,size.cex=T,edgesize = 3,labelsize=0.6)
+
+```
+
+```{r isolating affiliations}
+affiliations <- cbind(results$Affiliations) 
+
+aff_frac <- print(results$Aff_frac)
+```
+#How can I map a value column between the affiliation collaborations in the results file?
