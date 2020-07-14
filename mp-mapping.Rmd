@@ -44,8 +44,16 @@ MostProdCountries <- print(S$MostProdCountries)
 MostProdCountries$Articles <- as.numeric(MostProdCountries$Articles)
 
 #I need a better way to do this, because this way won't update if the order changes
-iso_a3 <- c("USA", "CHN", "ITA", "ESP", "GBR", "CAN", "AUS", "JPN",  "BRA",  "FRA")
+
+#test 2015-2017 dataset
+iso_a3 <- c("USA", "ITA", "CHN", "BRA", "ESP", "KOR", "GBR", "FRA", "DEU", "AUS")
+
+# #full dataset
+# iso_a3 <- c("USA", "CHN", "ITA", "ESP", "GBR", "CAN", "AUS", "JPN",  "BRA",  "FRA")
+
+
 MostProdCountries$iso_a3 <- iso_a3
+
 
 #Attempt to join Summary to spatial data -- didn't work
 # test <- append_data(World, MostProdCountries, key.shp = "name", key.data = "Country",
@@ -65,12 +73,15 @@ final$Articles <- as.numeric(final$Articles)
 
 ```
 
-```{r mapping}
-tm_shape(World) +
-  tm_polygons("final") +
-  tm_symbols(col = "black", border.col = "white", size = "final$Articles")
+```{r mapping by colour}
 
-summary(MostProdCountries)
+tm_shape(final) + tm_fill(col = "Articles")
 
-?tm_symbols
 ```
+
+```{r mapping by symbol}
+tm_shape(final) +
+  tm_polygons() +
+  tm_symbols(col = "black", border.col = "white", size = "Articles")
+```
+
