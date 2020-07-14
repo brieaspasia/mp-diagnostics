@@ -48,3 +48,8 @@ Average path length is the mean of the shortest distance between each pair of ve
 netstat <- networkStat(NetMatrix)
 summary(netstat,k=10)
 ```
+
+```{r historiography}
+histResults <- histNetwork(bib, sep = ";")
+```
+
