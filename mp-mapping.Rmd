@@ -41,72 +41,77 @@ bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.
 results <- biblioAnalysis(bib, sep=";")
 
 options(width=100)
-S <- summary(object = results, k=25, pause = FALSE)
+S <- summary(object = results, k=200, pause = FALSE)
 
 ```
 
-```{r extract country level data}
+```{r extract and clean country level data}
 #isolate the country data
 MostProdCountries <- print(S$MostProdCountries)
 MostProdCountries$Articles <- as.numeric(MostProdCountries$Articles)
-MostProdCountries$article_prop <- (MostProdCountries$Articles/9728)*100
-
-sum(MostProdCountries$article_prop[1:10]) #the top ten countries produce 45% of the articles
+MostProdCountries$Country <- gsub("^\\s+|\\s+$", "", MostProdCountries$Country) #strip white spaces at the end
+str(MostProdCountries)
+MostProdCountries$Country <- as.character(MostProdCountries$Country)
 ```
 
 ```{r join bib to world}
-#join the bib country data to the world spatial file
-#I need a better way to do this, because this way won't update if the order changes
+#creating country column in world
+str(World)
+Country <- toupper(as.character(World$name))
+World <- cbind(Country, World)
+World$Country <- as.character(World$Country)
 
-# #test 2015-2017 dataset
-# iso_a3 <- c("USA", "ITA", "CHN", "BRA", "ESP", "KOR", "GBR", "FRA", "DEU", "AUS")
+#matching country column in bib and world
+intersect(MostProdCountries$Country, World$Country)
+setdiff(MostProdCountries$Country, World$Country) #these were not matched to Countries in World data set
+MostProdCountries$Country <- gsub("USA", "UNITED STATES", MostProdCountries$Country)
+MostProdCountries$Country <- gsub("GUAM", "UNITED STATES", MostProdCountries$Country)
+MostProdCountries$Country <- gsub("HONG KONG", "CHINA", MostProdCountries$Country)
+MostProdCountries$Country <- gsub("CZECH REPUBLIC", "CZECH REP.", MostProdCountries$Country)
+#MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
+#MostProdCountries$Country <- gsub("MONACO", "", MostProdCountries$Country) #29 lost
+#MostProdCountries$Country <- gsub("SINGAPORE", "", MostProdCountries$Country) #29 lost
+#MostProdCountries$Country <- gsub("BARBADOS", "", MostProdCountries$Country) #1 lost
+#MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
+#MostProdCountries$Country <- gsub("MALTA", "", MostProdCountries$Country) #1 lost
+#MostProdCountries$Country <- gsub("MAURITIUS", "", MostProdCountries$Country) #6 lost
+#MostProdCountries$Country <- gsub("ANTIGUA", "", MostProdCountries$Country) #4 lost
+#MostProdCountries$Country <- gsub("PALAU", "", MostProdCountries$Country) #1 lost
+#MostProdCountries$Country <- gsub("SAINT KITTS AND NEVIS", "", MostProdCountries$Country) #1 lost
+#MostProdCountries$Country <- gsub("SAMOA", "", MostProdCountries$Country) #1 lost
 
-#full dataset top 10
-iso_a3 <- c("USA", "CHN", "ITA", "ESP", "GBR", "CAN", "AUS", "JPN",  "BRA",  "FRA")
-
-#full dataset top 25 -- HongKong isn't a real iso_a3, I've just added it as a placeholder here
-iso_a3 <- c("USA", "CHN", "ITA", "ESP", "GBR", "CAN", "AUS", "JPN",  "BRA",  "FRA", "DEU", "KOR", "HONGKONG", "IND", "NOR", "PRT", "GRC", "TUR", "SWE", "NLD", "DNK", "BEL", "MEX", "POL", "ARG")
-
-MostProdCountries$iso_a3 <- iso_a3
-
-#Attempt to join Summary to spatial data -- didn't work
-# test <- append_data(World, MostProdCountries, key.shp = "name", key.data = "Country",
-#   ignore.duplicates = FALSE, ignore.na = FALSE,
-#   fixed.order = is.null(key.data) && is.null(key.shp))
-
-#Example joining df to spatial data
-#append_data(shp, data, key.shp = NULL, key.data = NULL,
-#  ignore.duplicates = FALSE, ignore.na = FALSE,
-# fixed.order = is.null(key.data) && is.null(key.shp))
-
-#Joining summary to spatial data
-final <- dplyr::full_join(World, MostProdCountries, by="iso_a3")
-
-final$Articles <- as.numeric(final$Articles)
-
+MostProdCountries_World <- dplyr::left_join(MostProdCountries, World, by = "Country") 
+str(MostProdCountries_World)
+head(MostProdCountries_World)
 ```
 
-```{r colour-map, fig.cap='Top ten countries producing marine pollution research by proportion'}
+```{r proportion of research by country}
+MostProdCountries_World$article_prop <- (MostProdCountries_World$Articles/9728)*100
+
+sum(MostProdCountries_World$article_prop[1:12]) #the top 12 countries produce 50% of the research
+```
+
+```{r colour-map, fig.cap='Global marine pollution research by proportion'}
 
 #Mapping by proportion of articles
-tm_shape(final) + tm_fill(col = "article_prop")
+tm_shape(MostProdCountries_World) + tm_fill(col = "article_prop")
 
-
+tm_shape(World) + tm_fill()
 ```
-```{r colour-map, fig.cap='Top ten countries producing marine pollution research by total articles'}
+
+
+```{r colour-map, fig.cap='Global marine pollution research by total articles'}
 
 #Mapping by total number of articles
-tm_shape(final) + tm_fill(col = "Articles")
+tm_shape(MostProdCountries_World) + tm_fill(col = "Articles")
 
 
 ```
 
 
 ```{r mapping by symbol}
-tm_shape(final) +
+tm_shape(MostProdCountries_World) +
   tm_polygons() +
   tm_symbols(col="blue", size = "article_prop")
-
-?tm_symbols
 ```
 
