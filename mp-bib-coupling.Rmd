@@ -1,0 +1,59 @@
+---
+title: "mp-bib-coupling"
+author: "Brie Sherow"
+date: "15/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load library, include=FALSE}
+library(bibliometrix)
+```
+
+
+```{r upload data, eval=TRUE}
+getwd()
+bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+
+# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+names(bib)
+#write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
+```
+**Author's bibliographic coupling** - two authors are bibliographically coupled if they share at leas one reference form their reference lists.  Articles are nodes, shared references are edges.   
+
+```{r  author coupling network, eval=TRUE}
+NetMatrix <- biblioNetwork(bib, analysis = "coupling", network = "references", sep = ";")
+net = networkPlot(NetMatrix, weighted = NULL, n = 50, Title = "Authors' bibliographic coupling", type = "fruchterman", size = 5, remove.multiple = TRUE, labelsize = 0.8)
+?networkPlot
+cluster= walktrap
+
+```
+
+##Definitions in networkStat
+Size is the number of vertices composing the network;
+
+Density is the proportion of present edges from all possible edges in the network;
+
+Transitivity is the ratio of triangles to connected triples;
+
+Diameter is the longest geodesic distance (length of the shortest path between two nodes) in the network;
+
+Degree distribution is the cumulative distribution of vertex degrees;
+
+Degree centralization is the normalized degree of the overall network;
+
+Average path length is the mean of the shortest distance between each pair of vertices in the network.
+
+```{r authors coupling stats}
+netstat <- networkStat(NetMatrix)
+summary(netstat,k=10)
+```
+
+```{r historiography}
+#This one is still throwing an error message for me, see ex. in GitHub issue
+histResults <- histNetwork(bib, sep = ";")
+```
+
