@@ -45,7 +45,7 @@ S <- summary(object = results, k=200, pause = FALSE)
 
 ```
 
-```{r extract and clean country level data}
+```{r extract and process country level data}
 #isolate the country data
 MostProdCountries <- print(S$MostProdCountries)
 MostProdCountries$Articles <- as.numeric(MostProdCountries$Articles)

@@ -5,8 +5,8 @@ date: "12/07/2020"
 output: html_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+```{r setup, echo=FALSE, include=FALSE}
+knitr::opts_chunk$set(fig.path="output/", fig.width=11, fig.height=9.5, fig.align="center")
 ```
 
 ```{r load library, include=FALSE}
@@ -15,11 +15,11 @@ library(bibliometrix)
 
 ```{r upload data, eval=TRUE}
 getwd()
-bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Testing using one bib file
+# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Testing using one bib file
 
-# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
-names(bib)
-#write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
+bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# names(bib)
+# write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
 
 ```{r get author names, eval=TRUE}
@@ -51,16 +51,15 @@ dfAU <- print(topAU$dfAU)
 
 dfPapersAU <- print(topAU$dfPapersAU)
 
-#write.csv(dfAU, "output/AUcitations.csv", row.names = FALSE) #save this data frame as a csv file
+write.csv(dfAU, "output/AUcitations.csv", row.names = FALSE) #save this data frame as a csv file
 
-#write.csv(dfPapersAU, "output/AUpapercitations.csv", row.names = FALSE) #save this data frame as a csv file
+write.csv(dfPapersAU, "output/AUpapercitations.csv", row.names = FALSE) #save this data frame as a csv file
 ```
 
 ```{r  most cited papers, eval=TRUE}
 mostcitedP <- citations(bib, field = "article", sep = ";")
 cbind(mostcitedP$Cited[1:50]) #first 50
-
-#write.csv(mostcitedP, "output/mostcitedP.csv", row.names = FALSE) #save this data frame as a csv file
+write.csv(mostcitedP, "output/mostcitedP.csv", row.names = FALSE) #save this data frame as a csv file
 ```
 
 **Bibliographic coupling** - two articles are bibliographically coupled if they share at least one reference from their reference lists (i.e. at least one cited source appears in the reference lists/bibliographies of both papers (Kessler, 1963).  
@@ -68,7 +67,7 @@ cbind(mostcitedP$Cited[1:50]) #first 50
 ```{r  paper coupling network, eval=TRUE}
 #Looking at papers
 BCNetMatrix <- biblioNetwork(bib, analysis = "coupling", network = "references", sep = ";")
-BCnet = networkPlot(NetMatrix, weighted = NULL, n = 50, Title = "Papers' bibliographic coupling", type = "fruchterman", size = 5, remove.multiple = TRUE, labelsize = 0.5)
+BCnet = networkPlot(BCNetMatrix, weighted = NULL, n = 50, Title = "Papers' bibliographic coupling", type = "fruchterman", size = 5, remove.multiple = TRUE, labelsize = 0.5)
 ```
 
 **Keyword co-occurrences** - we can also visualise which papers share most keywords (from Scopus database).    
@@ -76,10 +75,11 @@ BCnet = networkPlot(NetMatrix, weighted = NULL, n = 50, Title = "Papers' bibliog
 ```{r  keyword co-occurance network, eval=TRUE}
 #Looking at topics
 TNetMatrix <- biblioNetwork(bib, analysis = "co-occurrences", network = "keywords", sep = ";")
-Tnet = networkPlot(NetMatrix, n = 30, Title = "Keyword co-occurance", type = "fruchterman", size = T, remove.multiple = FALSE, labelsize = 0.7, edgesize = 5)
+Tnet = networkPlot(TNetMatrix, n = 30, Title = "Keyword co-occurance", type = "fruchterman", size = T, remove.multiple = FALSE, labelsize = 0.7, edgesize = 5)
 ```
 
 ```{r  conceptualStructure map, eval=TRUE}
-#Authors
-DE_CS <- conceptualStructure(bib, field = "DE", minDegree = 20, k.max = 5, stemming = FALSE, labelsize = 10)
+#Authors keywords
+DE_CS <- conceptualStructure(bib, field = "DE", minDegree = 20, k.max = 2, stemming = FALSE, labelsize = 10)
+
 ```
