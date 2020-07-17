@@ -22,6 +22,7 @@ library(tmaptools)
 library(tmap)
 library(sf)
 library(bibliometrix)
+library(tidyverse)
 data("World")
 ```
 
@@ -52,6 +53,9 @@ MostProdCountries$Articles <- as.numeric(MostProdCountries$Articles)
 MostProdCountries$Country <- gsub("^\\s+|\\s+$", "", MostProdCountries$Country) #strip white spaces at the end
 str(MostProdCountries)
 MostProdCountries$Country <- as.character(MostProdCountries$Country)
+
+sum(MostProdCountries$Articles)
+sum(as.numeric(MostProdCountries$Freq))
 ```
 
 ```{r join bib to world}
@@ -84,34 +88,36 @@ MostProdCountries_World <- dplyr::left_join(World, MostProdCountries, by = "Coun
 str(MostProdCountries_World)
 head(MostProdCountries_World)
 ```
+
 ```{r aggregate multiples}
 #combine china/hongkong and usa/guam rows to avoid duplicates
 countries_aggregated <- aggregate(MostProdCountries_World$Articles, by=list(Country=MostProdCountries_World$Country), FUN=sum)
+str(countries_aggregated)
 
 #rename x to Articles
 names(countries_aggregated)[names(countries_aggregated)=="x"] <- "Articles"
 
 MostProdCountries_World <- dplyr::left_join(World, countries_aggregated, by = "Country")    
-               
 ```
 
 ```{r proportion of research by country}
 #creating a column for proportion of the research
-MostProdCountries_World$article_prop <- (MostProdCountries_World$Articles/9728)*100
-MostProdCountries_World$article_prop <- as.numeric(MostProdCountries_World$article_prop)
-
+sum(MostProdCountries_World$Articles, na.rm = TRUE)
+MostProdCountries_World$article_prop <- (MostProdCountries_World$Articles/sum(MostProdCountries_World$Articles, na.rm = TRUE)) #if you multiply this by 100, it is percentage, not proportion
+#MostProdCountries_World$article_prop <- as.numeric(MostProdCountries_World$article_prop)
+sum(MostProdCountries_World$article_prop, na.rm = TRUE) #1
 
 #replacing NAs with zero
-MostProdCountries_World$article_prop[is.na(MostProdCountries_World$article_prop)] = 0
+MostProdCountries_World$article_prop[is.na(MostProdCountries_World$article_prop)] <- 0
 
 #checking the total
 sum(MostProdCountries_World$article_prop) #this map only represents 76.6% of the research due to lost matches above
 
 #which countries represent the majority of the research
 MostProdCountries_World %>%
-  dplyr::arrange(desc(article_prop)) %>%
-  sum(article_prop[1:10])
+  dplyr::arrange(desc(article_prop)) %>% top_n(10, article_prop) -> top10
 
+sum(top10$article_prop) #0.65
 ```
 
 
