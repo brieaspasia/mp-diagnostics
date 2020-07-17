@@ -17,9 +17,9 @@ library(circlize)
 
 ```{r upload data, eval=TRUE}
 getwd()
-bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 
-# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 # names(bib)
 #write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
@@ -28,7 +28,7 @@ bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", f
 results <- biblioAnalysis(bib, sep=";")
 
 options(width=100)
-S <- summary(object = results, k = 10, pause = FALSE)
+S <- summary(object = results, k = 50, pause = FALSE)
 ```
 
 
@@ -38,7 +38,27 @@ S <- summary(object = results, k = 10, pause = FALSE)
 NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";")
 net=networkPlot(NetMatrix,  n = 50, Title = "Edu collaboration",type = "auto", size=10,size.cex=T,edgesize = 3,labelsize=0.6)
 
+?biblioNetwork
+
+str(NetMatrix)
 ```
+```{r converting from matrix}
+#convert to simple matrix
+NetMatrix2 <- as.matrix(NetMatrix)
+
+#convert to data frame
+NetMatrix3 <- as.data.frame(NetMatrix2)
+
+#add a column with university names from the rownames
+NetMatrix3$University <- rownames(NetMatrix3)
+head(NetMatrix3$University)
+
+#reformat into long df
+library(tidyverse)
+out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -University)
+```
+
+
 
 ```{r isolating affiliations}
 affiliations <- cbind(results$Affiliations) 
