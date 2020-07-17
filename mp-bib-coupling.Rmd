@@ -10,6 +10,10 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ```{r load library, include=FALSE}
+<<<<<<< HEAD
+=======
+
+>>>>>>> 19e209499d2a1a170ef605a1ca98f964a13ae61a
 library(bibliometrix)
 ```
 
@@ -27,12 +31,17 @@ names(bib)
 ```{r  author coupling network, eval=TRUE}
 NetMatrix <- biblioNetwork(bib, analysis = "coupling", network = "references", sep = ";")
 net = networkPlot(NetMatrix, weighted = NULL, n = 50, Title = "Authors' bibliographic coupling", type = "fruchterman", size = 5, remove.multiple = TRUE, labelsize = 0.8)
+<<<<<<< HEAD
 ?networkPlot
 cluster= walktrap
 
 ```
 
 ##Definitions in networkStat
+=======
+```
+
+>>>>>>> 19e209499d2a1a170ef605a1ca98f964a13ae61a
 Size is the number of vertices composing the network;
 
 Density is the proportion of present edges from all possible edges in the network;
@@ -53,7 +62,10 @@ summary(netstat,k=10)
 ```
 
 ```{r historiography}
+<<<<<<< HEAD
 #This one is still throwing an error message for me, see ex. in GitHub issue
+=======
+>>>>>>> 19e209499d2a1a170ef605a1ca98f964a13ae61a
 histResults <- histNetwork(bib, sep = ";")
 ```
 

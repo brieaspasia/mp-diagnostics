@@ -19,9 +19,15 @@ library(igraph)
 
 ```{r upload data, eval=TRUE}
 getwd()
+<<<<<<< HEAD
 # bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 
 bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+=======
+bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+
+# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+>>>>>>> 19e209499d2a1a170ef605a1ca98f964a13ae61a
 # names(bib)
 #write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
@@ -41,8 +47,12 @@ net=networkPlot(NetMatrix, normalize="association", n = 30, Title = "Keyword Co-
 #How can I take the results of *biblioNetwork* and create a df with weights and interactions that will work with [Gephi](https://www.r-bloggers.com/network-visualization-part-2-gephi/)?
 
 ```{r co-word through correspondence}
+<<<<<<< HEAD
 CS <- conceptualStructure(bib, method="MCA", field="ID", minDegree=100, clust="auto", stemming=FALSE, labelsize=8, documents=20)
 
+=======
+CS <- conceptualStructure(bib, method="MCA", field="ID", minDegree=10, clust=5, stemming=FALSE, labelsize=8,documents=20)
+>>>>>>> 19e209499d2a1a170ef605a1ca98f964a13ae61a
 ```
 
 
