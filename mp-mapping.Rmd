@@ -66,30 +66,54 @@ intersect(MostProdCountries$Country, World$Country)
 setdiff(MostProdCountries$Country, World$Country) #these were not matched to Countries in World data set
 MostProdCountries$Country <- gsub("USA", "UNITED STATES", MostProdCountries$Country)
 MostProdCountries$Country <- gsub("GUAM", "UNITED STATES", MostProdCountries$Country)
-MostProdCountries$Country <- gsub("HONG KONG", "CHINA", MostProdCountries$Country)
+MostProdCountries$Country <- gsub("HONG KONG", "CHINA", MostProdCountries$Country) 
 MostProdCountries$Country <- gsub("CZECH REPUBLIC", "CZECH REP.", MostProdCountries$Country)
-#MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
-#MostProdCountries$Country <- gsub("MONACO", "", MostProdCountries$Country) #29 lost
-#MostProdCountries$Country <- gsub("SINGAPORE", "", MostProdCountries$Country) #29 lost
-#MostProdCountries$Country <- gsub("BARBADOS", "", MostProdCountries$Country) #1 lost
-#MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
-#MostProdCountries$Country <- gsub("MALTA", "", MostProdCountries$Country) #1 lost
-#MostProdCountries$Country <- gsub("MAURITIUS", "", MostProdCountries$Country) #6 lost
-#MostProdCountries$Country <- gsub("ANTIGUA", "", MostProdCountries$Country) #4 lost
-#MostProdCountries$Country <- gsub("PALAU", "", MostProdCountries$Country) #1 lost
-#MostProdCountries$Country <- gsub("SAINT KITTS AND NEVIS", "", MostProdCountries$Country) #1 lost
-#MostProdCountries$Country <- gsub("SAMOA", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
+# MostProdCountries$Country <- gsub("MONACO", "", MostProdCountries$Country) #29 lost
+# MostProdCountries$Country <- gsub("SINGAPORE", "", MostProdCountries$Country) #29 lost
+# MostProdCountries$Country <- gsub("BARBADOS", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
+# MostProdCountries$Country <- gsub("MALTA", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("MAURITIUS", "", MostProdCountries$Country) #6 lost
+# MostProdCountries$Country <- gsub("ANTIGUA", "", MostProdCountries$Country) #4 lost
+# MostProdCountries$Country <- gsub("PALAU", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("SAINT KITTS AND NEVIS", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("SAMOA", "", MostProdCountries$Country) #1 lost
 
-MostProdCountries_World <- dplyr::left_join(MostProdCountries, World, by = "Country") 
+MostProdCountries_World <- dplyr::left_join(World, MostProdCountries, by = "Country") 
 str(MostProdCountries_World)
 head(MostProdCountries_World)
 ```
+```{r aggregate multiples}
+#combine china/hongkong and usa/guam rows to avoid duplicates
+countries_aggregated <- aggregate(MostProdCountries_World$Articles, by=list(Country=MostProdCountries_World$Country), FUN=sum)
+
+#rename x to Articles
+names(countries_aggregated)[names(countries_aggregated)=="x"] <- "Articles"
+
+MostProdCountries_World <- dplyr::left_join(World, countries_aggregated, by = "Country")    
+               
+```
 
 ```{r proportion of research by country}
+#creating a column for proportion of the research
 MostProdCountries_World$article_prop <- (MostProdCountries_World$Articles/9728)*100
+MostProdCountries_World$article_prop <- as.numeric(MostProdCountries_World$article_prop)
 
-sum(MostProdCountries_World$article_prop[1:12]) #the top 12 countries produce 50% of the research
+
+#replacing NAs with zero
+MostProdCountries_World$article_prop[is.na(MostProdCountries_World$article_prop)] = 0
+
+#checking the total
+sum(MostProdCountries_World$article_prop) #this map only represents 76.6% of the research due to lost matches above
+
+#which countries represent the majority of the research
+MostProdCountries_World %>%
+  dplyr::arrange(desc(article_prop)) %>%
+  sum(article_prop[1:10])
+
 ```
+
 
 ```{r colour-map, fig.cap='Global marine pollution research by proportion'}
 
@@ -104,8 +128,6 @@ tm_shape(World) + tm_fill()
 
 #Mapping by total number of articles
 tm_shape(MostProdCountries_World) + tm_fill(col = "Articles")
-
-
 ```
 
 
