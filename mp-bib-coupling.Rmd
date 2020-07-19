@@ -58,8 +58,31 @@ rm(bib, M, net, NetMatrix, NetMatrix2, NetMatrix3, results, S, test, df2)
 ```{r igraph tutorial}
 library(igraph)
 #ensuring no duplicated edges or self-loops
-gD <- simplify(graph.data.frame(out, directed=FALSE))
+bib_plot <- simplify(graph.data.frame(out, directed=FALSE))
+```
 
+```{r inspect the data}
+V(bib_plot) #prints the list of vertices (keywords)
+E(bib_plot) #prints the list of edges (relationships)
+degree(bib_plot) #print the number of edges per vertex (relationships per keyword)
+```
+
+```{r initial plot}
+# First try - hairball!
+plot(bib_plot)
+```
+
+
+```{r subset data}
+#subset based on degree
+bad.vs<-V(bib_plot)[degree(bib_plot)<100] #identify those vertices part of less than three edges
+gD<-delete.vertices(bib_plot, bad.vs) #exclude them from the graph
+
+plot(bib_plot) #another hairball...
+```
+
+
+```{r initial plot}
 vcount(gD)
 ecount(gD)
 
@@ -82,8 +105,9 @@ summary(gD)
 #I don't know what this is meant to do???  See line 47 at #https://www.r-bloggers.com/network-visualization-part-2-gephi/
 F1 <- function(x) {data.frame(V4 = dsAll[which(V(gD)$name == as.character(x$V1)), which(V(gD)$name == as.character(x$V2))])}
 dataSet.ext <- plyr::ddply(out, .variables=c("V1", "V2", "V3"), function(x) data.frame(F1(x)))
-
 ```
+
+
 ```{r rgexf}
 install.packages("rgexf")
 library(rgexf)
