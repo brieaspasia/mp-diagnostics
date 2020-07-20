@@ -21,18 +21,8 @@ bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", f
 
 # bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 # names(bib)
-#write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
+# write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
-
-```{r analysis and summary}
-results <- biblioAnalysis(bib, sep=";")
-
-options(width=100)
-S <- summary(object = results, k = 10, pause = FALSE)
-```
-
-
-
 ```{r university collab}
 
 NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";")
@@ -40,18 +30,54 @@ net=networkPlot(NetMatrix,  n = 50, Title = "Edu collaboration",type = "auto", s
 
 ```
 
-```{r isolating affiliations}
-affiliations <- cbind(results$Affiliations) 
 
-aff_frac <- print(results$Aff_frac)
+```{r converting from matrix}
+#convert to simple matrix
+NetMatrix2 <- as.matrix(NetMatrix)
+
+#convert to data frame
+NetMatrix3 <- as.data.frame(NetMatrix2)
+
+#add a column with university names from the rownames
+NetMatrix3$University <- rownames(NetMatrix3)
+head(NetMatrix3$University)
+
+#reformat into long df
+library(tidyverse)
+out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -University)
+
+#filter out unlinked
+out <- out %>%
+  filter(Linkscount >0)
+
+#filter out self matches
+out <- out[!(out$University==out$COL_NAME),]
 ```
-#How can I map a value column between the affiliation collaborations in the results file?
 
-# Create a country collaboration network
-```{r country collab}
-M <- metaTagExtraction(bib, Field = "AU_CO", sep = ";")
-NetMatrixM <- biblioNetwork(M, analysis = "collaboration", network = "countries", sep = ";")
+```{r set parameters}
+#example code from data-to-viz.com
+circos.clear()
+circos.par(start.degree = 90, gap.degree = 1, track.margin = c(-0.1, 0.1), points.overflow.warning = FALSE)
+par(mar = rep(0, 4))
 
-# Plot the network
-netM=networkPlot(NetMatrixM, n = dim(NetMatrixM)[1], Title = "Country Collaboration", type = "circle", size=TRUE, remove.multiple=FALSE,labelsize=0.7,cluster="none")
+#colour palette
+library(viridis)
+mycolor <- viridis(50, alpha = 1, begin = 0, end = 1, option = "D")
+mycolor <- mycolor[sample(1:50)]
+```
+
+```{r base chord diagram}
+#example code from data-to-viz.com
+chordDiagram(
+  x = out, 
+  grid.col = mycolor,
+  transparency = 0.25,
+  directional = 1,
+  direction.type = c("arrows", "diffHeight"), 
+  diffHeight  = -0.04,
+  annotationTrack = "grid", 
+  annotationTrackHeight = c(0.05, 0.1),
+  link.arr.type = "big.arrow", 
+  link.sort = TRUE, 
+  link.largest.ontop = TRUE)
 ```
