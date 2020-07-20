@@ -36,12 +36,32 @@ bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", f
 results <- biblioAnalysis(bib, sep=";")
 
 options(width=100)
-S <- summary(object = results, k = 10, pause = FALSE)
+S <- summary(object = results, k = 50, pause = FALSE)
 ```
 
 ```{r join bib to world}
-MostProdCountries <- print(S$MostProdCountries)
+S <- summary(object = results, k = 200, pause = FALSE)
+MostProdCountries <- S$MostProdCountries
+#MostProdCountries <- print(S$MostProdCountries)
 MostProdCountries$Articles <- as.numeric(MostProdCountries$Articles)
+MostProdCountries$Country <- gsub("^\\s+|\\s+$", "", MostProdCountries$Country) #strip whie spaces at the end
+str(MostProdCountries)
+
+str(World)
+World$Country <- toupper(as.character(World$name))
+Country <- toupper(as.character(World$name))
+World$Country <- Country
+
+intersect(MostProdCountries$Country, World$Country )
+setdiff(MostProdCountries$Country, World$Country ) #these were not matched to Countries in World data set
+MostProdCountries$Country <- gsub("USA", "UNITED STATES", MostProdCountries$Country)
+MostProdCountries$Country <- gsub("HONG KONG", "CHINA", MostProdCountries$Country)
+#MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country)
+#MostProdCountries$Country <- gsub("MONACO", "", MostProdCountries$Country)
+#MostProdCountries$Country <- gsub("BARBADOS", "", MostProdCountries$Country)
+
+MostProdCountries_World <- dplyr::left_join(MostProdCountries, World, by = "Country")
+
 
 #I need a better way to do this, because this way won't update if the order changes
 
