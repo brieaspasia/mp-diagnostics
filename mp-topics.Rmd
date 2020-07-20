@@ -7,7 +7,6 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-#reference: https://www.r-bloggers.com/network-visualization-part-2-gephi/
 ```
 
 ```{r load libraries}
@@ -20,9 +19,9 @@ library(igraph)
 ```{r upload data, eval=TRUE}
 getwd()
 
-# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 
-bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Test file
+# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Test file
 
 # names(bib)
 #write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
@@ -62,33 +61,44 @@ out <- out[!(out$Keyword==out$COL_NAME),]
 #ensuring no duplicated edges or self-loops
 library(igraph)
 gD <- simplify(graph.data.frame(out, directed=FALSE))
+
+#inspect the data
+V(gD) #prints the list of vertices (keywords)
+E(gD) #prints the list of edges (relationships)
+degree <- degree(gD) #print the number of edges per vertex (relationships per keyword)
 ```
 
 ```{r wordcloud}
 library(wordcloud)
+library(wordcloud2)
+
+?wordcloud2
+
+#creating df for wordcloud
+cloud_plot <- as.data.frame(degree)
+cloud_plot$word <- rownames(cloud_plot)
+rownames(cloud_plot) <- NULL
+colnames(cloud_plot)[colnames(cloud_plot) == "degree"] <- "freq"
+
+cloud_plot <- cloud_plot[,c(2,1)]
 
 pal2 <- brewer.pal(8,"Dark2")
 
-wordcloud(out$Keyword,out$Linkscount, scale=c(2,.2),min.freq=50,
-max.words=50, random.order=FALSE, rot.per=.15, colors=pal2)
+wordcloud(cloud_plot$freq,cloud_plot$word, scale=c(2,.2),min.freq=100,
+max.words=100, random.order=FALSE, rot.per=.15, colors=pal2)
 
-
+wordcloud2(cloud_plot, size=1)
 ```
 
-
-```{r inspect the data}
-V(gD) #prints the list of vertices (keywords)
-E(gD) #prints the list of edges (relationships)
-degree(gD) #print the number of edges per vertex (relationships per keyword)
-```
-
-```{r initial plot}
+```{r initial igraph plot}
 # First try - hairball!
 plot(gD)
 ```
+
+
 ```{r subset data}
 #subset based on degree
-bad.vs<-V(gD)[degree(gD)<100] #identify those vertices part of less than three edges
+bad.vs<-V(gD)[degree(gD)<300] #identify vertices with fewer connections
 gD<-delete.vertices(gD, bad.vs) #exclude them from the graph
 
 plot(gD) #another hairball...
