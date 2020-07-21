@@ -12,6 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r load libraries}
 library(bibliometrix)
 library(igraph)
+library(wordcloud2)
+library(here)
 
 ```
 
@@ -25,7 +27,26 @@ bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.
 
 # names(bib)
 #write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
+
+bib_early <- subset(bib, PY<2010)
+bib_recent <- subset(bib, PY>2009)
+
+#assigning era
+# bib$era <- ifelse(bib$PY >2009, "recent", "early")
 ```
+
+
+```{r extracting country}
+# M <- metaTagExtraction(bib, Field = "AU_CO", sep = ";")
+# head(M)
+# 
+# M_US <- M[grep("USA", M$AU_CO),] #create subset with authors from USA
+# M_CH <- M[grep("CHINA", M$AU_CO),] #create subset with authors from China
+# M_IT <- M[grep("ITALY", M$AU_CO),] #create subset with authors from Italy
+# M_SP <- M[grep("SPAIN", M$AU_CO),] #create subset with authors from Spain
+# M_UK <- M[grep("ITALY", M$AU_CO),] #create subset with authors from Italy
+```
+
 
 ```{r networks}
 NetMatrix <- biblioNetwork(bib, analysis = "co-occurrences", network = "keywords", sep = ";")
@@ -41,12 +62,11 @@ NetMatrix2 <- as.matrix(NetMatrix)
 #convert to data frame
 NetMatrix3 <- as.data.frame(NetMatrix2)
 
-#add a column with university names from the rownames
+#add a column with keyword names from the rownames
 NetMatrix3$Keyword <- rownames(NetMatrix3)
-head(NetMatrix3$Keyword)
 
 #reformat into long df
-library(tidyverse)
+#library(tidyverse)
 out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -Keyword)
 
 summary(out$Linkscount)
@@ -69,55 +89,94 @@ degree <- degree(gD) #print the number of edges per vertex (relationships per ke
 ```
 
 ```{r wordcloud}
-library(wordcloud)
-library(wordcloud2)
-
-?wordcloud2
-
 #creating df for wordcloud
 cloud_plot <- as.data.frame(degree)
+
+#creating a column from the rownames
 cloud_plot$word <- rownames(cloud_plot)
+
+#take out zeros
 rownames(cloud_plot) <- NULL
+
+#rename the count to freq for the wordcloud
 colnames(cloud_plot)[colnames(cloud_plot) == "degree"] <- "freq"
 
+#switch the column orders for the wordcloud
 cloud_plot <- cloud_plot[,c(2,1)]
 
-pal2 <- brewer.pal(8,"Dark2")
-
-wordcloud(cloud_plot$freq,cloud_plot$word, scale=c(2,.2),min.freq=100,
-max.words=100, random.order=FALSE, rot.per=.15, colors=pal2)
+# write.csv(cloud_plot, "output/cloud_sp.csv", row.names = FALSE) #save this data frame as a csv file
 
 wordcloud2(cloud_plot, size=1)
+
+ #save output
+  png(filename = paste0(here("output"),"/_cloud.png"),width=1000, height=1000)
 ```
 
-```{r initial igraph plot}
-# First try - hairball!
-plot(gD)
+```{r wordcloud loop}
+#building loop tag
+era = unique(bib$era)
+
+#filter doesn't work for a matrix
+for(x in era){
+  
+  #defne temp era
+  NetMatrix <- filter(bib$era == x) %>%
+    biblioNetwork(bib, analysis = "co-occurrences", 
+                             network = "keywords", sep = ";")
+  
+  #convert to simple matrix
+  NetMatrix2 <- as.matrix(NetMatrix)
+  
+  #convert to data frame
+  NetMatrix3 <- as.data.frame(NetMatrix2)
+  
+  #add a column with keyword names from the rownames
+  NetMatrix3$Keyword <- rownames(NetMatrix3)
+  
+  #reformat into long df
+  #library(tidyverse)
+  out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -Keyword)
+  
+  summary(out$Linkscount)
+  
+  #filter out unlinked
+  out <- out %>%
+    filter(Linkscount > 5)
+  
+  #filter out self matches
+  out <- out[!(out$Keyword==out$COL_NAME),]
+  
+  #ensuring no duplicated edges or self-loops
+  gD <- simplify(graph.data.frame(out, directed=FALSE))
+  
+  #inspect the data
+  degree <- degree(gD) #print the number of edges per vertex (relationships per keyword)
+
+  #creating df for wordcloud
+  cloud_plot <- as.data.frame(degree)
+  
+  #creating a column from the rownames
+  cloud_plot$word <- rownames(cloud_plot)
+  
+  #take out zeros
+  rownames(cloud_plot) <- NULL
+  
+  #rename the count to freq for the wordcloud
+  colnames(cloud_plot)[colnames(cloud_plot) == "degree"] <- "freq"
+  
+  #switch the column orders for the wordcloud
+  cloud_plot <- cloud_plot[,c(2,1)]
+  
+  #print wordcloud
+  wordcloud2(cloud_plot, size=1)
+  
+  #write 
+  png(filename = paste0(here("output"),"/",x,"_cloud.png"),width=1000, height=1000)
+  
+  dev.off()
+} 
 ```
 
-
-```{r subset data}
-#subset based on degree
-bad.vs<-V(gD)[degree(gD)<300] #identify vertices with fewer connections
-gD<-delete.vertices(gD, bad.vs) #exclude them from the graph
-
-plot(gD) #another hairball...
-```
-
-
-
-```{r analysis and summary}
-results <- biblioAnalysis(bib, sep=";")
-
-# options(width=100)
-# S <- summary(object = results, k = 10, pause = FALSE)
-```
-
-```{r co-word through correspondence}
-
-CS <- conceptualStructure(bib, method="MCA", field="ID", minDegree=10, clust="auto", stemming=FALSE, labelsize=8, documents=20)
-
-```
 
 
 
