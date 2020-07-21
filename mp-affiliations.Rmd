@@ -7,27 +7,33 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+#references
+#https://jokergoo.github.io/circlize_book/book/the-chorddiagram-function.html
 ```
 
 ```{r load libraries}
 library(bibliometrix)
 library(ggraph)
 library(circlize)
+library(tidyverse)
+library(igraph)
 ```
 
 ```{r upload data, eval=TRUE}
 getwd()
-bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 
-# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 # names(bib)
 # write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
+
+
 ```{r university collab}
 
 NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";")
-net=networkPlot(NetMatrix,  n = 50, Title = "Edu collaboration",type = "auto", size=10,size.cex=T,edgesize = 3,labelsize=0.6)
-
+net=networkPlot(NetMatrix,  n = 50, Title = "Author Affiliations", label.n=10, type = "fruchterman", cluster="walktrap", size=10,size.cex=T,edgesize = 3,labelsize=1, remove.multiple=T, remove.isolates=T)
 ```
 
 
@@ -43,34 +49,77 @@ NetMatrix3$University <- rownames(NetMatrix3)
 head(NetMatrix3$University)
 
 #reformat into long df
-library(tidyverse)
 out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -University)
-
-#filter out unlinked
-out <- out %>%
-  filter(Linkscount >0)
 
 #filter out self matches
 out <- out[!(out$University==out$COL_NAME),]
+
+#filter out low values
+out <- out %>%
+  filter(Linkscount >9)
+
+#check data
+summary(out$Linkscount)
+
 ```
+
+
+```{r igraph tutorial}
+#https://davetang.org/muse/2017/03/16/matrix-to-adjacency-list-in-r/
+library(igraph)
+# #ensuring no duplicated edges or self-loops
+# bib_plot <- simplify(graph.data.frame(out, directed=FALSE))
+```
+
+```{r}
+# create igraph S3 object
+names(out) <- c('from', 'to', 'weight')
+
+net <- graph.data.frame(out, directed = FALSE)
+ 
+# store original margins
+orig_mar <- par()$mar
+ 
+# set new margins to limit whitespace in plot
+par(mar=rep(.1, 4))
+ 
+# not much difference in the edge width given the values
+# but I included it for reference's sake
+plot(net, layout = layout_components(net), edge.width = E(net)$weight)
+plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.shape="none")
+```
+```{r}
+# community detection based on edge betweenness (Newman-Girvan)
+ceb <- cluster_edge_betweenness(net)
+ 
+plot(ceb, net)
+ 
+# community membership for each node
+membership(ceb)
+ 
+par(mar=orig_mar)
+dendPlot(ceb, mode="dendrogram")
+
+plot_dendrogram(ceb, mode="phylo", colbar=palette())
+
+```
+
 
 ```{r set parameters}
 #example code from data-to-viz.com
-circos.clear()
+circos.clear() #resets circular layout parameters
 circos.par(start.degree = 90, gap.degree = 1, track.margin = c(-0.1, 0.1), points.overflow.warning = FALSE)
-par(mar = rep(0, 4))
+par(mar = rep(0, 4)) #set graphical parameters
 
-#colour palette
-library(viridis)
-mycolor <- viridis(50, alpha = 1, begin = 0, end = 1, option = "D")
-mycolor <- mycolor[sample(1:50)]
+
 ```
 
 ```{r base chord diagram}
+chordDiagram(out)
+
 #example code from data-to-viz.com
 chordDiagram(
   x = out, 
-  grid.col = mycolor,
   transparency = 0.25,
   directional = 1,
   direction.type = c("arrows", "diffHeight"), 
