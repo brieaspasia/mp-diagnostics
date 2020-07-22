@@ -26,8 +26,7 @@ names(bib)
 
 ```{r  author coupling network, eval=TRUE}
 NetMatrix <- biblioNetwork(bib, analysis = "coupling", network = "references", sep = ";")
-net = networkPlot(NetMatrix, weighted = NULL, n = 50, Title = "Authors' bibliographic coupling", type = "fruchterman", size = 5, remove.multiple = TRUE, labelsize = 0.8)
-
+net = networkPlot(NetMatrix, weighted = NULL, n = 50, Title = "Authors' bibliographic coupling", label.n=15, type = "fruchterman", size = 10, cluster="walktrap", remove.multiple = TRUE, labelsize = 0.8)
 ```
 ```{r converting from matrix}
 #convert to simple matrix
@@ -46,20 +45,79 @@ out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -Reference)
 
 #filter out unlinked
 out <- out %>%
-  filter(Linkscount >0)
+  filter(Linkscount >25)
+
 
 #filter out self matches
 out <- out[!(out$Reference==out$COL_NAME),]
 
 #clean environment
-rm(bib, M, net, NetMatrix, NetMatrix2, NetMatrix3, results, S, test, df2)
+rm(bib, net, NetMatrix, NetMatrix2, NetMatrix3)
+```
+
+```{r set parameters}
+#example code from data-to-viz.com
+circos.clear() #resets circular layout parameters
+circos.par(start.degree = 90, gap.degree = 1, track.margin = c(-0.1, 0.1), points.overflow.warning = FALSE)
+par(mar = rep(0, 4)) #set graphical parameters
+```
+
+```{r base chord diagram}
+chordDiagram(out)
+
+#example code from data-to-viz.com
+chordDiagram(
+  x = out, 
+  transparency = 0.25,
+  directional = 1,
+  direction.type = c("arrows", "diffHeight"), 
+  diffHeight  = -0.04,
+  annotationTrack = "grid", 
+  annotationTrackHeight = c(0.05, 0.1),
+  link.arr.type = "big.arrow", 
+  link.sort = TRUE, 
+  link.largest.ontop = TRUE)
 ```
 
 ```{r igraph tutorial}
+#https://davetang.org/muse/2017/03/16/matrix-to-adjacency-list-in-r/
 library(igraph)
-#ensuring no duplicated edges or self-loops
-bib_plot <- simplify(graph.data.frame(out, directed=FALSE))
+# #ensuring no duplicated edges or self-loops
+# bib_plot <- simplify(graph.data.frame(out, directed=FALSE))
 ```
+
+```{r}
+# create igraph S3 object
+names(out) <- c('from', 'to', 'weight')
+
+net <- graph.data.frame(out, directed = FALSE)
+ 
+# store original margins
+orig_mar <- par()$mar
+ 
+# set new margins to limit whitespace in plot
+par(mar=rep(.1, 4))
+ 
+# not much difference in the edge width given the values
+# but I included it for reference's sake
+plot(net, layout = layout_components(net), edge.width = E(net)$weight)
+plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.shape="none")
+```
+```{r}
+# community detection based on edge betweenness (Newman-Girvan)
+ceb <- cluster_edge_betweenness(net)
+class(ceb)
+ 
+plot(ceb, net)
+ 
+# community membership for each node
+membership(ceb)
+ 
+par(mar=orig_mar)
+dendPlot(ceb, mode="dendrogram")
+
+```
+
 
 ```{r inspect the data}
 V(bib_plot) #prints the list of vertices (keywords)
