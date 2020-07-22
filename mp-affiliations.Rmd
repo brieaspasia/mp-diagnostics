@@ -33,7 +33,11 @@ bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.
 ```{r university collab}
 
 NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";")
-net=networkPlot(NetMatrix,  n = 50, Title = "Author Affiliations", label.n=10, type = "fruchterman", cluster="walktrap", size=10,size.cex=T,edgesize = 3,labelsize=1, remove.multiple=T, remove.isolates=T)
+net=networkPlot(NetMatrix,  n = 75, Title = "Author Affiliations", normalize = "salton", label.n=10, type = "fruchterman", halo=T, cluster="walktrap", size=10, size.cex=T,edgesize = 3,labelsize=1, remove.multiple=F, remove.isolates=F)
+
+class(NetMatrix)
+
+groups <- print(net$cluster_res)
 ```
 
 
@@ -52,81 +56,109 @@ head(NetMatrix3$University)
 out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -University)
 
 #filter out self matches
-out <- out[!(out$University==out$COL_NAME),]
+out1 <- out[!(out$University==out$COL_NAME),]
 
 #filter out low values
-out <- out %>%
-  filter(Linkscount >9)
+out2 <- out1 %>%
+  filter(Linkscount >3)
+
+#join to groups from net
+out2$University <- tolower(as.character(out2$University))
+
+#join to clustered groups
+chord <- dplyr::left_join(out2, groups, by = c("University"="vertex"))
+
+#rename columns
+chord <- data.table::setnames(chord, old = c('University','COL_NAME','Linkscount'), new = c('from','to','value'))
+
+#delete unnecessary columns
+chord <- chord %>%
+  select(from, to, value, cluster)
 
 #check data
-summary(out$Linkscount)
+head(chord)
 
+#select only top links
+chord <- chord %>%
+  arrange(desc(value)) %>%
+  top_n(50)
+    
 ```
 
-
-```{r igraph tutorial}
-#https://davetang.org/muse/2017/03/16/matrix-to-adjacency-list-in-r/
-library(igraph)
-# #ensuring no duplicated edges or self-loops
-# bib_plot <- simplify(graph.data.frame(out, directed=FALSE))
-```
-
-```{r}
-# create igraph S3 object
-names(out) <- c('from', 'to', 'weight')
-
-net <- graph.data.frame(out, directed = FALSE)
- 
-# store original margins
-orig_mar <- par()$mar
- 
-# set new margins to limit whitespace in plot
-par(mar=rep(.1, 4))
- 
-# not much difference in the edge width given the values
-# but I included it for reference's sake
-plot(net, layout = layout_components(net), edge.width = E(net)$weight)
-plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.shape="none")
-```
-```{r}
-# community detection based on edge betweenness (Newman-Girvan)
-ceb <- cluster_edge_betweenness(net)
- 
-plot(ceb, net)
- 
-# community membership for each node
-membership(ceb)
- 
-par(mar=orig_mar)
-dendPlot(ceb, mode="dendrogram")
-
-plot_dendrogram(ceb, mode="phylo", colbar=palette())
-
-```
-
+#https://www.visualcinnamon.com/2014/12/using-data-storytelling-with-chord.html
 
 ```{r set parameters}
 #example code from data-to-viz.com
 circos.clear() #resets circular layout parameters
 circos.par(start.degree = 90, gap.degree = 1, track.margin = c(-0.1, 0.1), points.overflow.warning = FALSE)
 par(mar = rep(0, 4)) #set graphical parameters
-
-
 ```
 
 ```{r base chord diagram}
-chordDiagram(out)
 
-#example code from data-to-viz.com
-chordDiagram(
-  x = out, 
-  transparency = 0.25,
-  directional = 1,
-  direction.type = c("arrows", "diffHeight"), 
-  diffHeight  = -0.04,
-  annotationTrack = "grid", 
-  annotationTrackHeight = c(0.05, 0.1),
-  link.arr.type = "big.arrow", 
-  link.sort = TRUE, 
-  link.largest.ontop = TRUE)
+chordDiagram(chord,
+             transparency = 0.25,
+             directional=1,
+             direction.type="diffHeight",
+             diffHeight = -0.05,
+             annotationTrack = "grid",
+             preAllocateTracks = 1)
+
+
+#circos text example https://www.data-to-viz.com/graph/chord.html
+
+#grouping example fig 15.10 https://jokergoo.github.io/circlize_book/book/advanced-usage-of-chorddiagram.html#multiple-group-chord-diagram
+```
+
+```{r rename cluster for graph labels}
+#original cluster groups from networkPlot
+    from = c(1,2,3,5,7,8)
+    
+#mapping to geographical region
+    to = c("China-centric", "UK-centric","USA and Australia", "Northern Europe", "Canada and Arctic", "Japan-centric")
+    
+    for(z in 1:length(from)){
+      chord$cluster = plyr::mapvalues(chord$cluster, from = from[z], to = to[z])
+    }
+```
+
+
+
+```{r igraph tutorial}
+#https://davetang.org/muse/2017/03/16/matrix-to-adjacency-list-in-r/
+# library(igraph)
+# #ensuring no duplicated edges or self-loops
+# bib_plot <- simplify(graph.data.frame(out, directed=FALSE))
+```
+
+```{r}
+# # create igraph S3 object
+# names(out) <- c('from', 'to', 'weight')
+# 
+# net <- graph.data.frame(out, directed = FALSE)
+#  
+# # store original margins
+# orig_mar <- par()$mar
+#  
+# # set new margins to limit whitespace in plot
+# par(mar=rep(.1, 4))
+#  
+# # not much difference in the edge width given the values
+# plot(net, layout = layout_components(net), edge.width = E(net)$weight)
+# plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.shape="none")
+```
+```{r}
+# # community detection based on edge betweenness (Newman-Girvan)
+# ceb <- cluster_edge_betweenness(net)
+#  
+# plot(ceb, net)
+#  
+# # community membership for each node
+# membership(ceb)
+#  
+# par(mar=orig_mar)
+# dendPlot(ceb, mode="dendrogram")
+# 
+# plot_dendrogram(ceb, mode="phylo", colbar=palette())
+
 ```
