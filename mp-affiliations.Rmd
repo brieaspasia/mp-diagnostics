@@ -22,9 +22,9 @@ library(igraph)
 
 ```{r upload data, eval=TRUE}
 getwd()
-# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 
-bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 # names(bib)
 # write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
@@ -33,11 +33,14 @@ bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.
 ```{r university collab}
 
 NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";")
-net=networkPlot(NetMatrix,  n = 75, Title = "Author Affiliations", normalize = "salton", label.n=10, type = "fruchterman", halo=T, cluster="walktrap", size=10, size.cex=T,edgesize = 3,labelsize=1, remove.multiple=F, remove.isolates=F)
+net=networkPlot(NetMatrix,  n = 75, Title = "Author Affiliations", normalize = "salton", label.n=10, type = "fruchterman", cluster="optimal", size=10, size.cex=T,edgesize = 3,labelsize=1, remove.multiple=F, remove.isolates=F)
 
-class(NetMatrix)
+#isolating the elements of networkPlot in order to modify them
+collab_graph <- print(net$graph) #igraph class
+collab_communities <- print(net$cluster_obj) #community class
+collab_clusters <- print(net$cluster_res) #data frame class
 
-groups <- print(net$cluster_res)
+plot(collab_graph, edge.arrow.size=.2, edge.curved=1)
 ```
 
 
@@ -66,7 +69,7 @@ out2 <- out1 %>%
 out2$University <- tolower(as.character(out2$University))
 
 #join to clustered groups
-chord <- dplyr::left_join(out2, groups, by = c("University"="vertex"))
+chord <- dplyr::left_join(out2, collab_clusters, by = c("University"="vertex"))
 
 #rename columns
 chord <- data.table::setnames(chord, old = c('University','COL_NAME','Linkscount'), new = c('from','to','value'))

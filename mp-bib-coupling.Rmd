@@ -11,98 +11,92 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r load library, include=FALSE}
 library(bibliometrix)
+library(tidyverse)
+library(igraph)
 ```
 
 
 ```{r upload data, eval=TRUE}
 getwd()
-bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 
-# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 names(bib)
 #write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
 **Author's bibliographic coupling** - two authors are bibliographically coupled if they share at leas one reference form their reference lists.  Articles are nodes, shared references are edges.   
 
+```{r  most cited papers, eval=TRUE}
+#checking for outliers - most cited papers all have less than 200 citations
+mostcitedP <- citations(bib, field = "article", sep = ";")
+cbind(mostcitedP$Cited[1:10]) #first 10
+```
+
 ```{r  author coupling network, eval=TRUE}
-NetMatrix <- biblioNetwork(bib, analysis = "coupling", network = "references", sep = ";")
-net = networkPlot(NetMatrix, weighted = NULL, n = 50, Title = "Authors' bibliographic coupling", label.n=15, type = "fruchterman", size = 10, cluster="walktrap", remove.multiple = TRUE, labelsize = 0.8)
+NetMatrix <- biblioNetwork(bib, analysis = "coupling", network = "authors", sep = ";")
+net = networkPlot(NetMatrix, weighted = NULL, n = 20, Title = "Authors' bibliographic coupling", label.n=10, type = "fruchterman", size = 10, cluster="walktrap", remove.multiple = TRUE, labelsize = 0.8)
+
+
+#isolating the elements of networkPlot in order to modify them
+coupling_graph <- print(net$graph) #igraph class
+coupling_communities <- print(net$cluster_obj) #community class
+coupling_clusters <- print(net$cluster_res) #data frame class
+
+plot(coupling_graph, edge.arrow.size=.2, edge.curved=1)
 ```
+
 ```{r converting from matrix}
-#convert to simple matrix
-NetMatrix2 <- as.matrix(NetMatrix)
+# #convert to simple matrix
+# NetMatrix2 <- as.matrix(NetMatrix)
+# 
+# #convert to data frame
+# NetMatrix3 <- as.data.frame(NetMatrix2)
+# 
+# #add a column with university names from the rownames
+# NetMatrix3$Reference <- rownames(NetMatrix3)
+# head(NetMatrix3)
+# 
+# #reformat into long df
+# out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -Reference)
+# 
+# #filter out unlinked
+# out2 <- out %>%
+#   filter(Linkscount >29)
+# 
+# summary(out2$Linkscount)
+# 
+# 
+# #filter out self matches
+# out3 <- out2[!(out2$Reference==out2$COL_NAME),]
 
-#convert to data frame
-NetMatrix3 <- as.data.frame(NetMatrix2)
-
-#add a column with university names from the rownames
-NetMatrix3$Reference <- rownames(NetMatrix3)
-head(NetMatrix3$Reference)
-
-#reformat into long df
-library(tidyverse)
-out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -Reference)
-
-#filter out unlinked
-out <- out %>%
-  filter(Linkscount >25)
-
-
-#filter out self matches
-out <- out[!(out$Reference==out$COL_NAME),]
-
-#clean environment
-rm(bib, net, NetMatrix, NetMatrix2, NetMatrix3)
+# #clean environment
+# rm(bib, NetMatrix, NetMatrix2, NetMatrix3, out, out2)
 ```
 
-```{r set parameters}
-#example code from data-to-viz.com
-circos.clear() #resets circular layout parameters
-circos.par(start.degree = 90, gap.degree = 1, track.margin = c(-0.1, 0.1), points.overflow.warning = FALSE)
-par(mar = rep(0, 4)) #set graphical parameters
-```
-
-```{r base chord diagram}
-chordDiagram(out)
-
-#example code from data-to-viz.com
-chordDiagram(
-  x = out, 
-  transparency = 0.25,
-  directional = 1,
-  direction.type = c("arrows", "diffHeight"), 
-  diffHeight  = -0.04,
-  annotationTrack = "grid", 
-  annotationTrackHeight = c(0.05, 0.1),
-  link.arr.type = "big.arrow", 
-  link.sort = TRUE, 
-  link.largest.ontop = TRUE)
-```
 
 ```{r igraph tutorial}
 #https://davetang.org/muse/2017/03/16/matrix-to-adjacency-list-in-r/
-library(igraph)
-# #ensuring no duplicated edges or self-loops
-# bib_plot <- simplify(graph.data.frame(out, directed=FALSE))
-```
+#https://kateto.net/networks-r-igraph
 
-```{r}
 # create igraph S3 object
-names(out) <- c('from', 'to', 'weight')
+names(out3) <- c('from', 'to', 'weight')
 
-net <- graph.data.frame(out, directed = FALSE)
+net <- graph.data.frame(out3, directed = FALSE)
+
+class(net)
  
 # store original margins
 orig_mar <- par()$mar
  
-# set new margins to limit whitespace in plot
+# set new margins to limit white space in plot
 par(mar=rep(.1, 4))
  
 # not much difference in the edge width given the values
-# but I included it for reference's sake
-plot(net, layout = layout_components(net), edge.width = E(net)$weight)
-plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.shape="none")
+plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.label=NA)
 ```
+
+
+
 ```{r}
 # community detection based on edge betweenness (Newman-Girvan)
 ceb <- cluster_edge_betweenness(net)
@@ -116,10 +110,13 @@ membership(ceb)
 par(mar=orig_mar)
 dendPlot(ceb, mode="dendrogram")
 
+dendPlot(ceb, mode="hclust")
 ```
 
 
 ```{r inspect the data}
+# #ensuring no duplicated edges or self-loops
+bib_plot <- simplify(graph.data.frame(out3, directed=FALSE))
 V(bib_plot) #prints the list of vertices (keywords)
 E(bib_plot) #prints the list of edges (relationships)
 degree(bib_plot) #print the number of edges per vertex (relationships per keyword)
@@ -127,16 +124,17 @@ degree(bib_plot) #print the number of edges per vertex (relationships per keywor
 
 ```{r initial plot}
 # First try - hairball!
-plot(bib_plot)
+plot(bib_plot, edge.arrow.size=.4, vertex.label=NA)
+
 ```
 
 
 ```{r subset data}
 #subset based on degree
 bad.vs<-V(bib_plot)[degree(bib_plot)<100] #identify those vertices part of less than three edges
-gD<-delete.vertices(bib_plot, bad.vs) #exclude them from the graph
+bib_plot<-delete.vertices(bib_plot, bad.vs) #exclude them from the graph
 
-plot(bib_plot) #another hairball...
+plot(bib_plot, vertex.label=NA) #another hairball...
 ```
 
 
