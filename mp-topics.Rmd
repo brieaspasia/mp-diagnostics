@@ -13,121 +13,35 @@ knitr::opts_chunk$set(echo = TRUE)
 library(bibliometrix)
 library(igraph)
 library(wordcloud2)
-library(here)
 library(tidyverse)
+library(htmlwidgets)
+library(webshot)
+webshot::install_phantomjs()
 ```
 
 
 ```{r upload data, eval=TRUE}
 getwd()
 
-bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 
-# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Test file
+bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Test file
 
 # names(bib)
 #write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
-save(bib, file = "./data/bib.RData") #save this data fraame as a RData file (object)
+save(bib, file = "./data/bib.RData") #save this data frame as a RData file (object)
 load(file = "./data/bib.RData") #to load this data frame from a RData file (returns an object named "bib")
-
-bib_early <- subset(bib, PY<2010)
-bib_recent <- subset(bib, PY>2009)
-
-dim(bib)
-dim(bib_early)
-dim(bib_recent)
-
-#assigning era
-# bib$era <- ifelse(bib$PY >2009, "recent", "early")
 ```
-
-
-```{r extracting country}
-# M <- metaTagExtraction(bib, Field = "AU_CO", sep = ";")
-# head(M)
-# 
-# M_US <- M[grep("USA", M$AU_CO),] #create subset with authors from USA
-# M_CH <- M[grep("CHINA", M$AU_CO),] #create subset with authors from China
-# M_IT <- M[grep("ITALY", M$AU_CO),] #create subset with authors from Italy
-# M_SP <- M[grep("SPAIN", M$AU_CO),] #create subset with authors from Spain
-# M_UK <- M[grep("ITALY", M$AU_CO),] #create subset with authors from Italy
-```
-
-
-```{r networks}
-NetMatrix <- biblioNetwork(bib, analysis = "co-occurrences", network = "keywords", sep = ";")
-#net=networkPlot(NetMatrix, normalize="association", n = 30, Title = "Keyword Co-occurrences", type = "fruchterman", size.cex=TRUE, size=20, remove.multiple=F, edgesize = 10, labelsize=3,label.cex=TRUE,label.n=30,edges.min=2)
-
-save(NetMatrix, file = "./data/NetMatrix_keywords_all.RData") #save this data fraame as a RData file (object)
-load(file = "./data/NetMatrix_keywords_all.RData") #to load this data frame from a RData file (returns an object named "NetMatrix")
-```
-
-
-```{r converting from matrix}
-#convert to simple matrix
-NetMatrix2 <- as.matrix(NetMatrix)
-
-#convert to data frame
-NetMatrix3 <- as.data.frame(NetMatrix2)
-
-#add a column with keyword names from the rownames
-NetMatrix3$Keyword <- rownames(NetMatrix3)
-
-#reformat into long df
-out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -Keyword)
-
-summary(out$Linkscount)
-
-#filter out unlinked
-out <- out %>%
-  filter(Linkscount > 5)
-
-#filter out self matches
-out <- out[!(out$Keyword==out$COL_NAME),]
-
-#ensuring no duplicated edges or self-loops
-library(igraph)
-gD <- simplify(graph.data.frame(out, directed=FALSE))
-
-#inspect the data
-V(gD) #prints the list of vertices (keywords)
-E(gD) #prints the list of edges (relationships)
-degree <- degree(gD) #print the number of edges per vertex (relationships per keyword)
-```
-
-```{r wordcloud}
-#creating df for wordcloud
-cloud_plot <- as.data.frame(degree)
-
-#creating a column from the rownames
-cloud_plot$word <- rownames(cloud_plot)
-
-#take out zeros
-rownames(cloud_plot) <- NULL
-
-#rename the count to freq for the wordcloud
-colnames(cloud_plot)[colnames(cloud_plot) == "degree"] <- "freq"
-
-#switch the column orders for the wordcloud
-cloud_plot <- cloud_plot[,c(2,1)]
-
-# write.csv(cloud_plot, "output/cloud_sp.csv", row.names = FALSE) #save this data frame as a csv file
-
-wordcloud2(cloud_plot, size=1)
-
- #save output
-  png(filename = paste0(here("output"),"/_cloud.png"),width=1000, height=1000)
-```
-
-# do the same for your 2 subsets:
-
-## early
+##Early marine pollution research (1970-2009)
 ```{r networks bib_early}
-NetMatrix_early <- biblioNetwork(bib_early, analysis = "co-occurrences", network = "keywords", sep = ";")
+#subsetting for early research
+bib_early <- subset(bib, PY<2010)
+
+NetMatrix_early <- biblioNetwork(bib_early, analysis = "co-occurrences", network = "author_keywords", sep = ";")
 #net=networkPlot(NetMatrix_early, normalize="association", n = 30, Title = "Keyword Co-occurrences", type = "fruchterman", size.cex=TRUE, size=20, remove.multiple=F, edgesize = 10, labelsize=3,label.cex=TRUE,label.n=30,edges.min=2)
 
-save(NetMatrix_early, file = "./data/NetMatrix_keywords_early.RData") #save this data fraame as a RData file (object)
-load(file = "./data/NetMatrix_keywords_early.RData") #to load this data frame from a RData file (returns an object named "NetMatrix_early")
+# save(NetMatrix_early, file = "./data/NetMatrix_keywords_early.RData") #save this data frame as a RData file (object)
+# load(file = "./data/NetMatrix_keywords_early.RData") #to load this data frame from a RData file (returns an object named "NetMatrix_early")
 
 NetMatrix2_early <- as.matrix(NetMatrix_early) #convert to simple matrix
 NetMatrix3_early <- as.data.frame(NetMatrix2_early) #convert to data frame
@@ -145,8 +59,6 @@ V(gD_early) #prints the list of vertices (keywords)
 E(gD_early) #prints the list of edges (relationships)
 degree_early <- degree(gD_early) #print the number of edges per vertex (relationships per keyword)
 hist(degree_early, breaks=1000)
-
-#plot(gD_early) #would need to reduce this using e.g. induced.subgraph and format for nicer plotting?
 
 #creating df for wordcloud
   cloud_plot_early <- as.data.frame(degree_early)
@@ -167,30 +79,25 @@ hist(degree_early, breaks=1000)
   wordcloud2(cloud_plot_early, size=1)
   wordcloud2(filter(cloud_plot_early, degree_early > 1000), size=1)
   
-  #write - DOES NOT WORK
-  #png(file = "wordcloud_early.png", width=1000, height=1000)
-  #  wordcloud2(cloud_plot_early, size=1)
-  #dev.off()
-  
-  
-  #TRY:
-install.packages("webshot")
-webshot::install_phantomjs()
-hw = wordcloud2(demoFreq,size = 3)
-saveWidget(hw,"1.html",selfcontained = F)
-webshot::webshot("1.html","1.png",vwidth = 1992, vheight = 1744, delay =10)
+#saving wordcloud graphic
+  wc_early = wordcloud2(cloud_plot_early, shape='rectangle')
+  saveWidget(wc_early,"wordcloud_early.html",selfcontained = F)
+  webshot::webshot("wordcloud_early.html","wordcloud_early.png",vwidth = 1992, vheight = 1744, delay = 60)
 
 #also see: https://www.learningrfordatascience.com/post/dynamic-wordclouds-with-wordcloud2/
 
 ```
 
-## recent
+## Recent marine pollution research (2010-2019)
 ```{r networks bib_recent}
-NetMatrix_recent <- biblioNetwork(bib_recent, analysis = "co-occurrences", network = "keywords", sep = ";")
+#subsetting for recent research
+bib_recent <- subset(bib, PY>2009)
+
+NetMatrix_recent <- biblioNetwork(bib_recent, analysis = "co-occurrences", network = "author_keywords", sep = ";")
 #net=networkPlot(NetMatrix_recent, normalize="association", n = 30, Title = "Keyword Co-occurrences", type = "fruchterman", size.cex=TRUE, size=20, remove.multiple=F, edgesize = 10, labelsize=3,label.cex=TRUE,label.n=30,edges.min=2)
 
-save(NetMatrix_recent, file = "./data/NetMatrix_keywords_recent.RData") #save this data fraame as a RData file (object)
-load(file = "./data/NetMatrix_keywords_recent.RData") #to load this data frame from a RData file (returns an object named "NetMatrix_recent")
+  # save(NetMatrix_recent, file = "./data/NetMatrix_keywords_recent.RData") #save this data      frame as a RData file (object)
+  # load(file = "./data/NetMatrix_keywords_recent.RData") #to load this data frame from a RData   file (returns an object named "NetMatrix_recent")
 
 
 NetMatrix2_recent <- as.matrix(NetMatrix_recent) #convert to simple matrix
@@ -210,78 +117,32 @@ E(gD_recent) #prints the list of edges (relationships)
 degree_recent <- degree(gD_recent) #print the number of edges per vertex (relationships per keyword)
 hist(degree, breaks=1000)
 
-#plot(gD_recent_rcent)
-
-#code for the wordclusd here....
-
-```
-
-
-# DO NOT RUN:
-```{r wordcloud loop}
-#building loop tag
-era = unique(bib$era)
-
-#filter doesn't work for a matrix
-for(x in era){
-  
-  #defne temp era
-  NetMatrix <- filter(bib$era == x) %>%
-    biblioNetwork(bib, analysis = "co-occurrences", 
-                             network = "keywords", sep = ";")
-  
-  #convert to simple matrix
-  NetMatrix2 <- as.matrix(NetMatrix)
-  
-  #convert to data frame
-  NetMatrix3 <- as.data.frame(NetMatrix2)
-  
-  #add a column with keyword names from the rownames
-  NetMatrix3$Keyword <- rownames(NetMatrix3)
-  
-  #reformat into long df
-  #library(tidyverse)
-  out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -Keyword)
-  
-  summary(out$Linkscount)
-  
-  #filter out unlinked
-  out <- out %>%
-    filter(Linkscount > 5)
-  
-  #filter out self matches
-  out <- out[!(out$Keyword==out$COL_NAME),]
-  
-  #ensuring no duplicated edges or self-loops
-  gD <- simplify(graph.data.frame(out, directed=FALSE))
-  
-  #inspect the data
-  degree <- degree(gD) #print the number of edges per vertex (relationships per keyword)
-
-  #creating df for wordcloud
-  cloud_plot <- as.data.frame(degree)
+#creating df for wordcloud
+  cloud_plot_recent <- as.data.frame(degree_recent)
   
   #creating a column from the rownames
-  cloud_plot$word <- rownames(cloud_plot)
+  cloud_plot_recent$word <- rownames(cloud_plot_recent)
   
   #take out zeros
-  rownames(cloud_plot) <- NULL
+  rownames(cloud_plot_recent) <- NULL
   
   #rename the count to freq for the wordcloud
-  colnames(cloud_plot)[colnames(cloud_plot) == "degree"] <- "freq"
+  colnames(cloud_plot_recent)[colnames(cloud_plot_recent) == "degree"] <- "freq"
   
   #switch the column orders for the wordcloud
-  cloud_plot <- cloud_plot[,c(2,1)]
+  cloud_plot_recent <- cloud_plot_recent[,c(2,1)]
   
   #print wordcloud
-  wordcloud2(cloud_plot, size=1)
+  wordcloud2(cloud_plot_recent, size=1)
+  wordcloud2(filter(cloud_plot_recent, degree_recent > 1000), size=1)
   
-  #write 
-  png(filename = paste0(here("output"),"/",x,"_cloud.png"),width=1000, height=1000)
-  
-  dev.off()
-} 
+  #saving wordcloud graphic
+  wc_recent = wordcloud2(cloud_plot_recent, shape='rectangle')
+  saveWidget(wc_recent,"wordcloud_recent.html",selfcontained = F)
+  webshot::webshot("wordcloud_recent.html","wordcloud_recent.png",vwidth = 1992, vheight = 1744, delay = 60)
+
 ```
+
 
 
 

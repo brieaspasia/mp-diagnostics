@@ -15,9 +15,7 @@ knitr::opts_chunk$set(fig.path="output/", fig.width=11, fig.height=9.5, fig.alig
 #reference:https://geocompr.robinlovelace.net/adv-map.html#static-maps
 ```
 
-```{r install tmap and load data}
-# install.packages("tmaptools")
-# install.packages("tmap")
+```{r install libraries and load data}
 library(tmaptools)
 library(tmap)
 library(sf)
@@ -29,9 +27,12 @@ data("World")
 
 ```{r upload data, eval=TRUE}
 # getwd()
-# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert one file to biblio df for testing
+# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert one file to bibliometric df for testing
 
 bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert all files to a bibliometric data frame
+
+save(bib, file = "./data/bib.RData") #save this data frame as a RData file (object)
+load(file = "./data/bib.RData") #to load this data frame from a RData file (returns an object named "bib")
 
 # names(bib)
 
@@ -40,6 +41,9 @@ bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.
 
 ```{r analysis and summary}
 results <- biblioAnalysis(bib, sep=";")
+
+save(results, file = "./data/results.RData") #save this data frame as a RData file (object)
+# load(file = "./data/results.RData") #to load this data frame from a RData file (returns an object named "bib")
 
 options(width=100)
 S <- summary(object = results, k=200, pause = FALSE)
@@ -58,7 +62,7 @@ sum(MostProdCountries$Articles)
 sum(as.numeric(MostProdCountries$Freq))
 ```
 
-```{r join bib to world}
+```{r join bib to world, echo=FALSE, include=FALSE}
 #creating country column in world
 str(World)
 Country <- toupper(as.character(World$name))
@@ -100,53 +104,52 @@ names(countries_aggregated)[names(countries_aggregated)=="x"] <- "Articles"
 MostProdCountries_World <- dplyr::left_join(World, countries_aggregated, by = "Country")    
 ```
 
-```{r proportion of research by country}
-#creating a column for proportion of the research
+```{r fractionalised research by country}
+#creating a column for fraction of the research
 sum(MostProdCountries_World$Articles, na.rm = TRUE)
-MostProdCountries_World$article_prop <- (MostProdCountries_World$Articles/sum(MostProdCountries_World$Articles, na.rm = TRUE)) #if you multiply this by 100, it is percentage, not proportion
+MostProdCountries_World$article_percentage <- (MostProdCountries_World$Articles/sum(MostProdCountries_World$Articles, na.rm = TRUE)*100) #if you multiply this by 100, it is percentage, not proportion
 #MostProdCountries_World$article_prop <- as.numeric(MostProdCountries_World$article_prop)
 sum(MostProdCountries_World$article_prop, na.rm = TRUE) #1
 
 #replacing NAs with zero
-MostProdCountries_World$article_prop[is.na(MostProdCountries_World$article_prop)] <- 0
+MostProdCountries_World$article_percentage[is.na(MostProdCountries_World$article_percentage)] <- 0
 
 #checking the total
-sum(MostProdCountries_World$article_prop) #this map only represents 76.6% of the research due to lost matches above
+sum(MostProdCountries_World$article_percentage) #this map only represents 76.6% of the research due to lost matches above
 
 #which countries represent the majority of the research
 MostProdCountries_World %>%
-  dplyr::arrange(desc(article_prop)) %>% top_n(6, article_prop) -> top6
+  dplyr::arrange(desc(article_percentage)) %>% top_n(6, article_percentage) -> top6
 
-sum(top10$article_prop) #0.65
-
-sum(top7$article_prop) #0.52
-
-sum(top6$article_prop) #0.47
-
-sum(top5$article_prop) #0.43
+# sum(top10$article_prop) #0.65
+# 
+# sum(top7$article_prop) #0.52
+# 
+# sum(top6$article_prop) #0.47
+# 
+# sum(top5$article_prop) #0.43
 ```
 
 
 ```{r colour-map, fig.cap='Global marine pollution research by proportion'}
+#rename attribute for legend
 
 #Mapping by proportion of articles, top 5 outlined
-tm_shape(MostProdCountries_World) + 
-  tm_fill(col = "article_prop", palette="BuGn") +
-  tm_borders(MostProdCountries_World$article_prop>=0.05, col = "black")
+mp_geog <- tm_shape(MostProdCountries_World) + 
+  tm_fill(col = "article_percentage", palette="BuGn", 
+    style="cont", title = "Percentage of Articles") +
+  tm_layout("Geography of marine pollution research",
+          legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("left","bottom"),
+          title.position = c("right", "bottom"))
+
+tmap_save(
+  tm = mp_geog,
+  filename = "./figures/mp_geog.png")
+
+#Only five countries produce more than 5% of the research each; USA, China, Spain, Italy, UK.
 
 ```
 
-
-```{r colour-map, fig.cap='Global marine pollution research by total articles'}
-
-#Mapping by total number of articles
-tm_shape(MostProdCountries_World) + tm_fill(col = "Articles")
-```
-
-
-```{r mapping by symbol}
-tm_shape(MostProdCountries_World) +
-  tm_polygons() +
-  tm_symbols(col="blue", size = "article_prop")
-```
 

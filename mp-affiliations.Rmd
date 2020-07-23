@@ -22,9 +22,9 @@ library(igraph)
 
 ```{r upload data, eval=TRUE}
 getwd()
-bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 
-# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 # names(bib)
 # write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
@@ -33,7 +33,10 @@ bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", f
 ```{r university collab}
 
 NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";")
-net=networkPlot(NetMatrix,  n = 75, Title = "Author Affiliations", normalize = "salton", label.n=10, type = "fruchterman", cluster="optimal", size=10, size.cex=T,edgesize = 3,labelsize=1, remove.multiple=F, remove.isolates=F)
+net=networkPlot(NetMatrix,  n = 50, Title = "Author Affiliations", normalize = "salton", label.n=10, type = "fruchterman", cluster="optimal", size=10, size.cex=T,edgesize = 3,labelsize=1, remove.multiple=F, remove.isolates=F)
+
+save(NetMatrix, file = "./data/NetMatrix_affiliations.RData") #save this data fraame as a RData file (object)
+load(file = "./data/NetMatrix_affiliations.RData") #to load this data frame from a RData file (returns an object named "NetMatrix")
 
 #isolating the elements of networkPlot in order to modify them
 collab_graph <- print(net$graph) #igraph class
@@ -41,6 +44,23 @@ collab_communities <- print(net$cluster_obj) #community class
 collab_clusters <- print(net$cluster_res) #data frame class
 
 plot(collab_graph, edge.arrow.size=.2, edge.curved=1)
+```
+
+
+```{r}
+# community detection based on edge betweenness (Newman-Girvan)
+ceb <- cluster_edge_betweenness(collab_graph)
+
+plot(ceb, collab_graph)
+
+# community membership for each node
+membership(ceb)
+
+par(mar=orig_mar)
+dendPlot(ceb, mode="dendrogram")
+
+plot_dendrogram(ceb, mode="phylo", colbar=palette())
+
 ```
 
 
@@ -58,8 +78,9 @@ head(NetMatrix3$University)
 #reformat into long df
 out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -University)
 
-#filter out self matches
-out1 <- out[!(out$University==out$COL_NAME),]
+# #filter out self matches
+# #Is this the instution collaborating with itself, in which case it should # #not be filtered out?
+# out1 <- out[!(out$University==out$COL_NAME),]
 
 #filter out low values
 out2 <- out1 %>%
@@ -149,19 +170,4 @@ chordDiagram(chord,
 # # not much difference in the edge width given the values
 # plot(net, layout = layout_components(net), edge.width = E(net)$weight)
 # plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.shape="none")
-```
-```{r}
-# # community detection based on edge betweenness (Newman-Girvan)
-# ceb <- cluster_edge_betweenness(net)
-#  
-# plot(ceb, net)
-#  
-# # community membership for each node
-# membership(ceb)
-#  
-# par(mar=orig_mar)
-# dendPlot(ceb, mode="dendrogram")
-# 
-# plot_dendrogram(ceb, mode="phylo", colbar=palette())
-
 ```
