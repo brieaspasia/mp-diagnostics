@@ -43,7 +43,7 @@ load(file = "./data/bib.RData") #to load this data frame from a RData file (retu
 results <- biblioAnalysis(bib, sep=";")
 
 save(results, file = "./data/results.RData") #save this data frame as a RData file (object)
-# load(file = "./data/results.RData") #to load this data frame from a RData file (returns an object named "bib")
+load(file = "./data/results.RData") #to load this data frame from a RData file (returns an object named "bib")
 
 options(width=100)
 S <- summary(object = results, k=200, pause = FALSE)
@@ -60,6 +60,9 @@ MostProdCountries$Country <- as.character(MostProdCountries$Country)
 
 sum(MostProdCountries$Articles)
 sum(as.numeric(MostProdCountries$Freq))
+
+
+MostProdCountries
 ```
 
 ```{r join bib to world, echo=FALSE, include=FALSE}

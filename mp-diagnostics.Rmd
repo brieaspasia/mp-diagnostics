@@ -17,7 +17,7 @@ library(bibliometrix)
 getwd()
 # bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Testing using one bib file
 
-bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 # names(bib)
 # write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
@@ -36,15 +36,18 @@ head(authors) #have a look again
 results <- biblioAnalysis(bib, sep=";")
 
 options(width=100)
-S <- summary(object = results, k = 10, pause = FALSE)
+S <- summary(object = results, k = 50, pause = FALSE)
 ```
 
 ```{r summary plots}
-plot(x=results, k=10, pause=F)
+
+plot(x=results, k=10)
+
+
 ```
 
 ```{r top authors over time}
-topAU <- authorProdOverTime(bib, k=50, graph=T)
+topAU <- authorProdOverTime(bib, k=10, graph=T)
 
 #separating the lists into df to save as csv
 dfAU <- print(topAU$dfAU)

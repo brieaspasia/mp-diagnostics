@@ -1,0 +1,105 @@
+---
+title: "mp-analysis"
+author: "Brie Sherow"
+date: "24/07/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r load library, echo=F, include=FALSE}
+library(bibliometrix)
+library(tidyverse)
+library(ggplot2)
+library(data.table)
+```
+
+```{r upload data, eval=TRUE}
+getwd()
+# bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+
+# bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
+
+#write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
+
+# save(bib, file = "./data/bib.RData") #save this data frame as a RData file (object)
+load(file = "./data/bib.RData") #to load this data frame from a RData file (returns an object named "bib")
+```
+```{r analysis and summary}
+results <- biblioAnalysis(bib, sep=";")
+
+options(width=100)
+S <- summary(object = results, k = 10, pause = FALSE)
+
+load(file = "./data/results.RData") #to load this data frame from a RData file
+```
+
+
+```{r analysis and summary}
+#total articles published per year
+annual_prod <- print(S$AnnualProduction)
+names(annual_prod)[1] <- "Year"
+as.numeric(annual_prod$Year)
+
+#Left intentionally blank in order to annotate
+ ggplot(annual_prod, aes(Year, Articles, group=1)) +
+          geom_point() +
+          geom_line() +
+          labs(title = "Marine Pollution Research", subtitle = "articles published per year", x="Year", y="Articles") +
+          scale_x_discrete(breaks = seq(1970, 2019, by = 5)) +
+          theme(axis.text.x = element_text(size = 12, angle = 90),
+                axis.text.y = element_text(size = 12),
+                panel.background = element_blank(),
+                axis.title.y = element_text(size = rel(1.8)),
+                axis.title.x = element_text(size = rel(1.8)),
+                plot.title = element_text(lineheight=3, face="bold", color="black", size=22),
+                plot.subtitle = element_text(lineheight=3, face="bold", color="black", size=16))
+  
+ggsave(filename="figures/papers_per_year.png", width=11, height=9.5, units ="in")
+
+  
+```
+
+
+##The top 10 most cited papers are all about plastics
+```{r  most cited papers, eval=TRUE}
+#top ten most cited papers
+mostcitedP <- citations(bib, field = "article", sep = ";")
+top10cited <- cbind(mostcitedP$Cited[1:10], mostcitedP$Year[1:10]) #first 10
+top10cited <- as.data.frame(top10cited)
+top10cited <- setDT(top10cited, keep.rownames = "papers")
+
+rmarkdown::paged_table(top10cited)
+
+
+write.csv(bib, "output/top10cited.csv", row.names = FALSE) #save this data frame as a csv file
+
+```
+
+```{r top authors over time}
+topAU <- authorProdOverTime(bib, k=15, graph=T)
+
+#separating the lists into df to save as csv
+dfAU <- print(topAU$dfAU)
+
+dfAU %>%
+ggplot(aes(x=year, y=Author, size=freq, color=TCpY, alpha=TCpY, shape="circle")) +
+         geom_point() +
+  geom_line()
+    
+
+dfPapersAU <- print(topAU$dfPapersAU)
+
+write.csv(dfAU, "output/AUcitations.csv", row.names = FALSE) #save this data frame as a csv file
+
+write.csv(dfPapersAU, "output/AUpapercitations.csv", row.names = FALSE) #save this data frame as a csv file
+```
+
+
+```{r summary plots}
+plot(x=results, k=10, pause=F)
+```
+
+
