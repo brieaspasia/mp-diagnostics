@@ -27,13 +27,16 @@ getwd()
 bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 # names(bib)
 # write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
+
+load(file = "./data/bib.RData") #to load this data frame from a RData file (returns an object named "bib")
 ```
 
 
 ```{r university collab}
 
 NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";")
-net=networkPlot(NetMatrix,  n = 50, Title = "Author Affiliations", normalize = "salton", label.n=10, type = "fruchterman", cluster="optimal", size=10, size.cex=T,edgesize = 3,labelsize=1, remove.multiple=F, remove.isolates=F)
+net=networkPlot(NetMatrix,  n = 75, Title = "International Collaborations", normalize = "association", label.n=30, type = "fruchterman", cluster="optimal", size=10, size.cex=T,edgesize = 3,labelsize=1, remove.multiple=F, remove.isolates=F)
+
 
 save(NetMatrix, file = "./data/NetMatrix_affiliations.RData") #save this data fraame as a RData file (object)
 load(file = "./data/NetMatrix_affiliations.RData") #to load this data frame from a RData file (returns an object named "NetMatrix")
@@ -43,27 +46,70 @@ collab_graph <- print(net$graph) #igraph class
 collab_communities <- print(net$cluster_obj) #community class
 collab_clusters <- print(net$cluster_res) #data frame class
 
-plot(collab_graph, edge.arrow.size=.2, edge.curved=1)
+#still not a super clear graph
+plot(collab_graph, 
+     edge.arrow.size=4, 
+     edge.curved=.06,
+     layout=layout_with_fr)
+
+```
+```{r inspecting biblio graph output}
+#inspecting edge and vertex attributes
+biblio_edge <- as_data_frame(collab_graph, what="edges")
+biblio_vertex <- as_data_frame(collab_graph, what="vertices")
+
+#clean edges using 
+collab_graph.m <- collab_graph - E(collab_graph)[E(collab_graph)$type=="mention"]
+
+#new plot
+plot(collab_graph.m,
+     vertex.label.font=2, #label font bold
+     vertex.label.cex=1, #label font size
+     vertex.label.distance=1, #sets label distance from vertex
+     edge.curved=0.2, #curve range for edges
+     arrow.mode=2, #arrows going forward
+     layout=layout_nicely)
+
 ```
 
 
 ```{r}
-# community detection based on edge betweenness (Newman-Girvan)
-ceb <- cluster_edge_betweenness(collab_graph)
-
-plot(ceb, collab_graph)
-
-# community membership for each node
-membership(ceb)
-
-par(mar=orig_mar)
-dendPlot(ceb, mode="dendrogram")
-
-plot_dendrogram(ceb, mode="phylo", colbar=palette())
-
+#new plot
+plot(collab_graph.m,
+     vertex.label=NA, #leave off labels
+     edge.curved=0.2, #curve range for edges
+     arrow.mode=2, #arrows going forward
+     layout=layout_with_fr)
 ```
 
+#on my way to making a chord diagram
+```{r base chord diagram}
+#attempt to group by cluster
+biblio_edge <- biblio_edge %>%
+  arrange(desc(num))
 
+#plot chord diagram
+chordDiagram(biblio_edge)
+#the labels here are ridiculous... 
+#circos text example https://www.rdocumentation.org/packages/circlize/versions/0.4.10/topics/circos.text
+
+#cleaner plot
+chordDiagram(biblio_edge,
+             transparency = 0.25,
+             directional=1,
+             direction.type="diffHeight",
+             diffHeight = -0.05,
+             annotationTrack = "grid",
+             preAllocateTracks = 1)
+#without the labels it looks cleaner, but it is still not grouped
+#grouping example fig 15.10 https://jokergoo.github.io/circlize_book/book/advanced-usage-of-chorddiagram.html#multiple-group-chord-diagram
+
+
+#these graphs are beautiful, but not intuitive to understand.  
+#Here's an example of how to communicate chord diagrams #https://www.visualcinnamon.com/2014/12/using-data-storytelling-with-chord.html
+```
+
+#trying to create igraph network from biblioNetwork output
 ```{r converting from matrix}
 #convert to simple matrix
 NetMatrix2 <- as.matrix(NetMatrix)
@@ -78,74 +124,136 @@ head(NetMatrix3$University)
 #reformat into long df
 out <- gather(NetMatrix3, key = COL_NAME, value = Linkscount, -University)
 
-# #filter out self matches
-# #Is this the instution collaborating with itself, in which case it should # #not be filtered out?
-# out1 <- out[!(out$University==out$COL_NAME),]
+#filter out self matches
+out1 <- out[!(out$University==out$COL_NAME),]
 
 #filter out low values
 out2 <- out1 %>%
   filter(Linkscount >3)
 
-#join to groups from net
-out2$University <- tolower(as.character(out2$University))
+View(arrange(out2, desc(Linkscount)))
+str(out2)
 
-#join to clustered groups
-chord <- dplyr::left_join(out2, collab_clusters, by = c("University"="vertex"))
+#remove duplicate connections
+DT <- mutate(out2, out2mult = as.numeric(as.factor(out2$University)) * as.numeric(as.factor(out2$COL_NAME))) 
+str(DT)
+duplicated2(DT, by=c("out2mult", "Linkscount")) #no duplicated2 function?
+DT_distinct <- distinct_at(tibble(DT), vars("out2mult", "Linkscount"), .keep_all=TRUE)
 
-#rename columns
-chord <- data.table::setnames(chord, old = c('University','COL_NAME','Linkscount'), new = c('from','to','value'))
+DT_distinct <- DT_distinct[(DT_distinct$University!=DT_distinct$COL_NAME),] #remove self-links for better visibility
+str(DT_distinct)
 
-#delete unnecessary columns
-chord <- chord %>%
-  select(from, to, value, cluster)
+#adjacency dataframe
+adj_df <- data.table::setnames(DT_distinct, old = c('University','COL_NAME','Linkscount'), new = c('from','to','value')) #renaming columns for clarity
+adj_df <- adj_df %>%
+  select(from, to, value) %>% #remove unnecessary column
+  arrange(desc(value)) %>% #order by links value
+  top_n(50) #select top 50 links
 
-#check data
-head(chord)
 
-#select only top links
-chord <- chord %>%
-  arrange(desc(value)) %>%
-  top_n(50)
+#create igraph object
+uni_network <- graph.data.frame(adj_df)
+
+plot(uni_network, edge.arrow.size=.4,vertex.label=NA)
+
+uni_network <- simplify(uni_network, remove.multiple = F, remove.loops = T) 
+
+E(uni_network)
+V(uni_network)$name
+
+plot(uni_network, edge.arrow.size=.4, edge.curved=.1, vertex.label=NA)
+
+```
+
+
+```{r set  attributes for vertices}
+
+#isolate edges
+net_edges <- as_data_frame(uni_network, what="edges")
+#isolate verices
+net_vertices <- as_data_frame(uni_network, what="vertices")
+
+#match case to join
+collab_clusters$vertex <- toupper(as.character(collab_clusters$vertex))
+
+#join cluster designations from netPlot
+net_vertices <- dplyr::left_join(net_vertices, collab_clusters, by = c("name"="vertex"))
+
+#inspect data
+view(net_vertices)
+```
+
+```{r create igraph from df}
+#create igraph with updated node attributes
+network <- graph_from_data_frame(d=net_edges, vertices=net_vertices, directed=T) 
+
+class(network)
+
+#setting edge width to link value
+E(network)$width <- E(network)$value
+
+# color palette
+library(RColorBrewer)
+coul <- brewer.pal(nlevels(as.factor(net_vertices$clusters)), "Set2")
+
+# Map the color to cylinders
+my_color <- coul[as.numeric(as.factor(net_vertices$cluster))]
+
+plot(network, 
+     edge.arrow.size=.4, 
+     edge.curved=.1, 
+     edge.width=seq(1,10), 
+     vertex.label=NA, 
+     vertex.size=12,
+     vertex.color=my_color, 
+     vertex.label.cex=0.7,
+     vertex.label.color="white",
+     vertex.frame.color="transparent",
+     layout=layout_with_fr)
+
+
+
+# plot
+par(bg="grey13", mar=c(0,0,0,0))
+set.seed(4)
+plot(network, 
+    vertex.size=12,
+    vertex.color=my_color, 
+    vertex.label.cex=0.7,
+    vertex.label.color="white",
+    vertex.frame.color="transparent"
+    )
+
+
+```
+#my attempt at chord diagram
+```{r set parameters for chord}
+# #join to groups from net
+# out2$University <- tolower(as.character(out2$University))
+# #join to clustered groups
+# chord <- dplyr::left_join(out2, collab_clusters, by = c("University"="vertex"))
+
+
+# #delete unnecessary columns
+# chord <- chord %>%
+#   select(from, to, value, cluster)
+
+# #check data
+# head(chord)
+# 
+# #select only top links
+# chord <- chord %>%
+#   arrange(desc(num)) %>%
+#   top_n(50)
     
 ```
 
-#https://www.visualcinnamon.com/2014/12/using-data-storytelling-with-chord.html
 
 ```{r set parameters}
-#example code from data-to-viz.com
-circos.clear() #resets circular layout parameters
-circos.par(start.degree = 90, gap.degree = 1, track.margin = c(-0.1, 0.1), points.overflow.warning = FALSE)
-par(mar = rep(0, 4)) #set graphical parameters
-```
-
-```{r base chord diagram}
-
-chordDiagram(chord,
-             transparency = 0.25,
-             directional=1,
-             direction.type="diffHeight",
-             diffHeight = -0.05,
-             annotationTrack = "grid",
-             preAllocateTracks = 1)
-
-
-#circos text example https://www.data-to-viz.com/graph/chord.html
-
-#grouping example fig 15.10 https://jokergoo.github.io/circlize_book/book/advanced-usage-of-chorddiagram.html#multiple-group-chord-diagram
-```
-
-```{r rename cluster for graph labels}
-#original cluster groups from networkPlot
-    from = c(1,2,3,5,7,8)
-    
-#mapping to geographical region
-    to = c("China-centric", "UK-centric","USA and Australia", "Northern Europe", "Canada and Arctic", "Japan-centric")
-    
-    for(z in 1:length(from)){
-      chord$cluster = plyr::mapvalues(chord$cluster, from = from[z], to = to[z])
-    }
-    
-    #4
+# #example code from data-to-viz.com
+# circos.clear() #resets circular layout parameters
+# circos.par(start.degree = 90, gap.degree = 1, track.margin = c(-0.1, 0.1), points.overflow.warning = FALSE)
+# par(mar = rep(0, 4)) #set graphical parameters
 ```
 
 
@@ -158,7 +266,7 @@ chordDiagram(chord,
 ```
 
 ```{r}
-# # create igraph S3 object
+# # create igraph adjacency list
 # names(out) <- c('from', 'to', 'weight')
 # 
 # net <- graph.data.frame(out, directed = FALSE)
@@ -166,10 +274,27 @@ chordDiagram(chord,
 # # store original margins
 # orig_mar <- par()$mar
 #  
-# # set new margins to limit whitespace in plot
+# # set new margins to limit white space in plot
 # par(mar=rep(.1, 4))
 #  
 # # not much difference in the edge width given the values
 # plot(net, layout = layout_components(net), edge.width = E(net)$weight)
 # plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.shape="none")
+```
+
+```{r}
+# community detection based on edge betweenness (Newman-Girvan)
+ceb <- cluster_edge_betweenness(collab_graph)
+
+plot(ceb, collab_graph)
+
+# community membership for each node
+membership(ceb)
+
+
+par(mar=orig_mar)
+dendPlot(ceb, mode="dendrogram")
+
+plot_dendrogram(ceb, mode="phylo", colbar=palette())
+
 ```
