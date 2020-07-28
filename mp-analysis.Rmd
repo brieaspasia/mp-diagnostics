@@ -7,6 +7,8 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+?layout
 ```
 
 ```{r load library, echo=F, include=FALSE}
@@ -27,6 +29,8 @@ getwd()
 # save(bib, file = "./data/bib.RData") #save this data frame as a RData file (object)
 load(file = "./data/bib.RData") #to load this data frame from a RData file (returns an object named "bib")
 ```
+
+
 ```{r analysis and summary}
 results <- biblioAnalysis(bib, sep=";")
 

@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(bibliometrix)
 library(tidyverse)
 library(igraph)
+library(circlize)
 ```
 
 
@@ -21,6 +22,8 @@ getwd()
 # bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex") # Convert to a bibliometric data frame
 names(bib)
+
+load(file = "./data/bib.RData") #to load this data frame from a RData file (returns an object named "bib")
 #write.csv(bib, "output/bib_as_df.csv", row.names = FALSE) #save this data frame as a csv file
 ```
 **Author's bibliographic coupling** - two authors are bibliographically coupled if they share at leas one reference form their reference lists.  Articles are nodes, shared references are edges.   
@@ -34,11 +37,52 @@ cbind(mostcitedP$Cited[1:10]) #first 10
 ```{r  author coupling network, eval=TRUE}
 NetMatrix <- biblioNetwork(bib, analysis = "coupling", network = "authors", sep = ";")
 net = networkPlot(NetMatrix, weighted = NULL, n = 20, Title = "Authors' bibliographic coupling", label.n=10, type = "fruchterman", size = 10, cluster="walktrap", remove.multiple = TRUE, labelsize = 0.8)
+
+save(NetMatrix, file = "./data/NetMatrix_bibcoupling.RData") #save this data fraame as a RData file (object)
+load(file = "./data/NetMatrix_bibcoupling.RData") #to load this data frame from a RData file (returns an object named "NetMatrix")
+
+save(net, file = "./data/net_bibcoupling.RData") #save this data fraame as a RData file (object)
+load(file = "./data/net_bibcoupling.RData") #to load this data frame from a RData file (returns an object named "NetMatrix")
+
 #isolating the elements of networkPlot in order to modify them
 coupling_graph <- print(net$graph) #igraph class
 coupling_communities <- print(net$cluster_obj) #community class
 coupling_clusters <- print(net$cluster_res) #data frame class
 plot(coupling_graph, edge.arrow.size=.2, edge.curved=1)
+```
+```{r}
+#inspecting edge and vertex attributes
+biblio_edge <- as_data_frame(coupling_graph, what="edges")
+biblio_vertex <- as_data_frame(coupling_graph, what="vertices")
+
+#clean edges using 
+coupling_graph.m <- coupling_graph - E(coupling_graph)[E(coupling_graph)$type=="mention"]
+
+#new plot
+plot(coupling_graph.m,
+     vertex.label=NA, #leave off labels
+     edge.curved=0.2, #curve range for edges
+     arrow.mode=2, #arrows going forward
+     layout=layout_with_fr)
+```
+```{r}
+#attempt to group by cluster
+biblio_edge <- biblio_edge %>%
+  arrange(desc(num))
+
+#plot chord diagram
+chordDiagram(biblio_edge)
+#the labels here are ridiculous... 
+#circos text example https://www.rdocumentation.org/packages/circlize/versions/0.4.10/topics/circos.text
+
+#cleaner plot
+chordDiagram(biblio_edge,
+             transparency = 0.25,
+             directional=1,
+             direction.type="diffHeight",
+             diffHeight = -0.05,
+             annotationTrack = "grid",
+             preAllocateTracks = 1)
 ```
 
 ```{r converting from matrix}

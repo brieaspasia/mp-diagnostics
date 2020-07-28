@@ -58,10 +58,8 @@ plot(collab_graph,
 biblio_edge <- as_data_frame(collab_graph, what="edges")
 biblio_vertex <- as_data_frame(collab_graph, what="vertices")
 
-#clean edges using 
-collab_graph.m <- collab_graph - E(collab_graph)[E(collab_graph)$type=="mention"]
 
-#new plot
+#plot for clarity of labels
 plot(collab_graph.m,
      vertex.label.font=2, #label font bold
      vertex.label.cex=1, #label font size
@@ -74,7 +72,7 @@ plot(collab_graph.m,
 
 
 ```{r}
-#new plot
+#plot for clarity of groupings using fruchterman-reingold layout
 plot(collab_graph.m,
      vertex.label=NA, #leave off labels
      edge.curved=0.2, #curve range for edges
@@ -85,11 +83,14 @@ plot(collab_graph.m,
 #on my way to making a chord diagram
 ```{r base chord diagram}
 #attempt to group by cluster
-biblio_edge <- biblio_edge %>%
-  arrange(desc(num))
+top15 <- biblio_edge %>%
+  arrange(desc(num)) %>%
+  top_n(15)
+
+?top_n
 
 #plot chord diagram
-chordDiagram(biblio_edge)
+chordDiagram(top15)
 #the labels here are ridiculous... 
 #circos text example https://www.rdocumentation.org/packages/circlize/versions/0.4.10/topics/circos.text
 

@@ -53,7 +53,8 @@ S <- summary(object = results, k=200, pause = FALSE)
 ```{r extract and process country level data}
 #isolate the country data
 MostProdCountries <- print(S$MostProdCountries)
-MostProdCountries$Articles <- as.numeric(MostProdCountries$Articles)
+MostProdCountries$Freq <- as.numeric(MostProdCountries$Freq)
+
 MostProdCountries$Country <- gsub("^\\s+|\\s+$", "", MostProdCountries$Country) #strip white spaces at the end
 str(MostProdCountries)
 MostProdCountries$Country <- as.character(MostProdCountries$Country)
@@ -76,8 +77,8 @@ World$Country <- as.character(World$Country)
 intersect(MostProdCountries$Country, World$Country)
 setdiff(MostProdCountries$Country, World$Country) #these were not matched to Countries in World data set
 MostProdCountries$Country <- gsub("USA", "UNITED STATES", MostProdCountries$Country)
-MostProdCountries$Country <- gsub("GUAM", "UNITED STATES", MostProdCountries$Country)
-MostProdCountries$Country <- gsub("HONG KONG", "CHINA", MostProdCountries$Country) 
+# MostProdCountries$Country <- gsub("GUAM", "UNITED STATES", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("HONG KONG", "CHINA", MostProdCountries$Country) #186 lost
 MostProdCountries$Country <- gsub("CZECH REPUBLIC", "CZECH REP.", MostProdCountries$Country)
 # MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
 # MostProdCountries$Country <- gsub("MONACO", "", MostProdCountries$Country) #29 lost
@@ -97,9 +98,9 @@ head(MostProdCountries_World)
 ```
 
 ```{r aggregate multiples}
-#combine china/hongkong and usa/guam rows to avoid duplicates
-countries_aggregated <- aggregate(MostProdCountries_World$Articles, by=list(Country=MostProdCountries_World$Country), FUN=sum)
-str(countries_aggregated)
+# #combine china/hongkong and usa/guam rows to avoid duplicates
+# countries_aggregated <- aggregate(MostProdCountries_World$Articles, by=list(Country=MostProdCountries_World$Country), FUN=sum)
+# str(countries_aggregated)
 
 #rename x to Articles
 names(countries_aggregated)[names(countries_aggregated)=="x"] <- "Articles"
@@ -124,13 +125,13 @@ sum(MostProdCountries_World$article_percentage) #this map only represents 76.6% 
 MostProdCountries_World %>%
   dplyr::arrange(desc(article_percentage)) %>% top_n(6, article_percentage) -> top6
 
-# sum(top10$article_prop) #0.65
+# sum(top10$article_percentage) #0.65
 # 
-# sum(top7$article_prop) #0.52
+# sum(top7$article_percentage) #0.52
 # 
-# sum(top6$article_prop) #0.47
+# sum(top6$article_percentage) #0.47
 # 
-# sum(top5$article_prop) #0.43
+# sum(top5$article_percentage) #0.43
 ```
 
 
@@ -146,6 +147,8 @@ mp_geog <- tm_shape(MostProdCountries_World) +
           legend.text.size = 0.6,
           legend.position = c("left","bottom"),
           title.position = c("right", "bottom"))
+
+mp_geog
 
 tmap_save(
   tm = mp_geog,
