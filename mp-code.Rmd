@@ -1,0 +1,390 @@
+---
+title: "Marine Pollution Bibliometrics"
+author: "Brie Sherow"
+date: "25/07/2020"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+    code_folding: hide
+    df_print: paged
+  pdf_document:
+    toc: yes
+---
+
+
+```{r load-libraries, warning=FALSE, message=FALSE, results='hide'}
+#for working with scopus metadata
+library(bibliometrix)
+#for cleaning and processing data
+library(tidyverse)
+library(data.table)
+library(dplyr)
+#for graphing
+library(ggplot2)
+#for clean display of tables and code
+library(knitr)
+library(kableExtra)
+#for spatial mapping
+library(tmaptools)
+library(tmap)
+library(sf)
+#for network mapping
+library(igraph)
+#for wordcloud
+library(wordcloud2)
+library(htmlwidgets)
+library(webshot)
+webshot::install_phantomjs()
+#for chord diagrams
+library(circlize)
+```
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Supplementary Methods and Materials 
+
+The aim of this project is to extract metadata from academic publications about marine pollution in order to map the clusters in geographies and topics and determine how they have changed over time.
+
+In this document I describe the data extraction from SCOPUS, the high level analysis with bibliometrix package, spatial analysis with tmap package, network mapping with igraph package, topic visualisation with wordcloud2 package, and the beginning of collaboration visualisation with chord diagrams in circlize package. The repository used to store this data can be found at [https://github.com/brieaspasia/mp-diagnostics](https://github.com/brieaspasia/mp-diagnostics)
+
+## Data Extraction
+
+### Literature Search
+
+I used the following string search in **SCOPUS**
+
+> EXACTKEYWORD (“marine pollut*”) AND (LIMIT-TO(SUBJAREA "ENVI")) AND (LIMIT-TO (DOCTYPE > "AR") OR LIMIT-TO (DOCTYPE "CP") OR LIMIT-TO (DOCTYPE "RE")) AND (LIMIT-TO(LANGUAGE 
+> "ENGLISH"))
+
+### SCOPUS column codes
+
+```{r scopus-colnames}
+read.csv('data/scopus_colnames.csv', header=FALSE) %>%
+  kable("html", col.names = c("Scopus Code", "Meaning")) %>% kable_styling() %>% #format table
+  scroll_box(width = "100%", height = "500px") #format scroll box
+```
+## Data Exploration
+
+### Loading SCOPUS dataset
+```{r load-data, results='hide'}
+# Load bibtex files and format into bibliometrix object
+bib <- convert2df(file = c("./data/scopus2018-2019.bib","./data/scopus2015-2017.bib", "./data/scopus2011-2014.bib","./data/scopus2006-2010.bib", "./data/scopus1999-2005.bib","./data/scopus1970-1998.bib"), dbsource = "scopus", format = "bibtex")
+save(bib, file = "./data/bib.RData") #save this data frame as RData
+```
+
+### High level analysis 
+```{r analysis-and-summary}
+results <- biblioAnalysis(bib, sep=";") #high level analysis of scopus metadata
+save(results, file = "./data/results.RData") #save this bibliometrix file as RData
+options(width=100) #plot max number of columns
+S <- summary(object = results, k = 10, pause = FALSE) #extracting biblioAnalysis results into a list
+```
+### Annual increase in publications
+```{r publications-per-year, results='hide'}
+#total articles published per year
+annual_prod <- print(S$AnnualProduction) #extracting df from summary list
+names(annual_prod)[1] <- "Year" #rename to clean leading and trailing whitespace 
+as.Date(annual_prod$Year, format="%Y") #set year to date format
+
+#Create clean graph to annotate later
+ ggplot(annual_prod, aes(Year, Articles, group=1)) + #visualise articles per year
+          geom_point() + #set points to show each year
+          geom_line() + #set line to show trends over time
+     #declutter labels
+          labs(title = "Marine Pollution Research", subtitle = "articles published per year", x="Year", y="Articles") +
+          scale_x_discrete(breaks = seq(1970, 2019, by = 5)) + 
+          theme(axis.text.x = element_text(size = 12, angle = 90),
+                axis.text.y = element_text(size = 12),
+                panel.background = element_blank(),
+                axis.title.y = element_text(size = rel(1.8)),
+                axis.title.x = element_text(size = rel(1.8)),
+                plot.title = element_text(lineheight=3, face="bold", color="black", size=22),
+                plot.subtitle = element_text(lineheight=3, face="bold", color="black", size=16))
+  
+#save output into png graphic
+ggsave(filename="figures/papers_per_year.png", width=11, height=9.5, units ="in")
+```
+
+### Most cited papers
+```{r  most-cited-papers, eval=TRUE}
+#top ten most cited papers
+mostcitedP <- citations(bib, field = "article", sep = ";") #extract articles based on citations
+top20cited <- cbind(mostcitedP$Cited[1:20], mostcitedP$Year[1:20]) #create matrix of top 20
+top20cited <- as.data.frame(top20cited) #matrix to df
+top20cited <- setDT(top20cited, keep.rownames = "reference") #transform rownames to first column
+names(top20cited)[2] <- "citation_count" #rename column
+names(top20cited)[3] <- "year" #rename column
+rmarkdown::paged_table(top20cited) %>% #print clean table
+kable("html", col.names = c("Reference", "Total Citations", "Year Published")) %>% 
+  kable_styling() %>%
+  scroll_box(width = "100%", height = "500px")
+```
+### Top producing authors
+```{r top-authors}
+topAU <- authorProdOverTime(bib, k=20, graph=F) #extracting author's annual production
+topAU_plot <- topAU$graph #extracting ggplot from list in order to modify
+topAU_plot + #clean up graph output
+  labs(title = "Authors' Publications over time", x="Authors", y="Year") + #meaningful title
+          theme(axis.text.x = element_text(size = 10, angle = 90), #clean labels
+                axis.text.y = element_text(size = 10))  #clean labels
+
+#save output into png graphic
+ggsave(filename="figures/authprod_per_year.png", width=11, height=9.5, units ="in")
+```
+Clean environment before next section
+```{r clean-bib}
+rm(list = ls())
+```
+## Geography of Marine Pollution
+Analyse the location of institutions that are publishing about marine pollution.
+```{r setup-geog, results='hide'}
+load(file = "./data/bib.RData") #load the bibliometrix object
+data("World") #load spatial data
+load(file = "./data/results.RData") #load biblioAnalysis results
+S <- summary(object = results, k = 200, pause = FALSE) #extracting biblioAnalysis results into a list. Set k = 200 to include all countries.
+```
+### Clean country level data
+```{r country-data, results='hide'}
+#clean the country data
+MostProdCountries <- print(S$MostProdCountries) #isolate country data in summary
+MostProdCountries$Freq <- as.numeric(MostProdCountries$Freq) #change to numeric
+MostProdCountries$Articles <- as.numeric(MostProdCountries$Articles) #change to numeric
+MostProdCountries$Country <- gsub("^\\s+|\\s+$", "", MostProdCountries$Country) #strip white spaces
+MostProdCountries$Country <- as.character(MostProdCountries$Country) #change name to character
+str(MostProdCountries) #inspect data
+head(MostProdCountries) #inspect data
+
+#creating country column in world
+str(World) #inspect data
+Country <- toupper(as.character(World$name)) #create uppercase country vector
+World <- cbind(Country, World) #join uppercase country vector to spatial file
+World$Country <- as.character(World$Country) #transform to character
+
+#joining bib and world
+intersect(MostProdCountries$Country, World$Country) #returns rows in common between the two tables
+setdiff(MostProdCountries$Country, World$Country) #these were not matched to Countries in World data set
+MostProdCountries$Country <- gsub("USA", "UNITED STATES", MostProdCountries$Country) #match country name
+MostProdCountries$Country <- gsub("CZECH REPUBLIC", "CZECH REP.", MostProdCountries$Country) #match country name
+#These records will be lost as there is no corresponding spatial data
+# MostProdCountries$Country <- gsub("GUAM", "UNITED STATES", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("HONG KONG", "CHINA", MostProdCountries$Country) #186 lost
+# MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
+# MostProdCountries$Country <- gsub("MONACO", "", MostProdCountries$Country) #29 lost
+# MostProdCountries$Country <- gsub("SINGAPORE", "", MostProdCountries$Country) #29 lost
+# MostProdCountries$Country <- gsub("BARBADOS", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("BAHRAIN", "", MostProdCountries$Country) #9 lost
+# MostProdCountries$Country <- gsub("MALTA", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("MAURITIUS", "", MostProdCountries$Country) #6 lost
+# MostProdCountries$Country <- gsub("ANTIGUA", "", MostProdCountries$Country) #4 lost
+# MostProdCountries$Country <- gsub("PALAU", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("SAINT KITTS AND NEVIS", "", MostProdCountries$Country) #1 lost
+# MostProdCountries$Country <- gsub("SAMOA", "", MostProdCountries$Country) #1 lost
+MostProdCountries_World <- dplyr::left_join(World, MostProdCountries, by = "Country") #join bibliometrics output to spatial data
+str(MostProdCountries_World) #inspect data format
+
+#create a column for percentage of the research
+sum(MostProdCountries_World$Articles, na.rm = TRUE) #check total articles
+MostProdCountries_World$article_percentage <- (MostProdCountries_World$Articles/sum(MostProdCountries_World$Articles, na.rm = TRUE)*100) #create % column
+str(MostProdCountries_World) #check data
+sum(MostProdCountries_World$article_percentage, na.rm = TRUE) #checking the total
+MostProdCountries_World$article_percentage[is.na(MostProdCountries_World$article_percentage)] <- 0 #replacing NAs with zero
+```
+
+### Determine key players
+```{r key-players}
+#determine the key players
+MostProdCountries_World %>%
+  dplyr::arrange(desc(article_percentage)) %>% top_n(7, article_percentage) -> top7 #global top 7
+sum(top7$article_percentage) #50% of the total research takes place in the top 7 countries
+top10 <- MostProdCountries_World %>%
+  dplyr::arrange(desc(article_percentage)) %>% top_n(10, article_percentage) -> top10 #global top 10
+top10 <- as.data.frame(top10) #transform for table output
+top10 <- top10 %>% select(Country, Articles, article_percentage) #remove unnecessary columns
+rmarkdown::paged_table(top10) %>% 
+  kable("html", caption = "Key Players in Marine Pollution Publishing", 
+        col.names = c("Country", "Total Articles", "Percentage of Articles")) %>%
+  kable_styling() #clean layout
+```
+The top 7 countries make up more than 50% of the total publishing, and of those only the top five produce more than 5% of the research each. Below I've mapped each nation's percentage of total articles.  Map is left intentionally clear in order to annotate later.
+```{r colour-map, fig.cap='Dominant nations in marine pollution publication'}
+#mapping by percentage of total articles
+mp_geog <- tm_shape(MostProdCountries_World) + 
+  tm_fill(col = "article_percentage", palette="BuGn", #assigning fill to percentage of total publishing
+    style="cont", title = "Percentage of Articles") + #continuous colour scale
+  tm_layout(legend.title.size = 1,
+          legend.text.size = 0.6,
+          legend.position = c("left","bottom")
+          )
+mp_geog  #check map output
+
+tmap_save(   #save output to png file
+  tm = mp_geog,
+  filename = "./figures/mp_geog.png")
+```
+Reference at [Geocomputation with R](https://geocompr.robinlovelace.net/adv-map.html)
+
+Clean environment before next section
+```{r clean-geog}
+rm(list = ls())
+```
+## Collaborations         
+```{r setup-affiliations-data}
+load(file = "./data/bib.RData") #load the bibliometrix object
+NetMatrix <- biblioNetwork(bib, analysis = "collaboration",  network = "universities", sep = ";") #create affiliation collaboration network
+net=networkPlot(NetMatrix,  n = 75, Title = "International Collaborations", normalize = "association", label.n=30, type = "fruchterman", cluster="optimal", size=10, size.cex=T,edgesize = 3,labelsize=1, remove.multiple=F, remove.isolates=F) #setting parameters for network plotting
+```
+This graph isn't very clear, further processing is needed. Below I've isolated the elements of networkPlot in order to modify them.
+```{r setup-affiliations-graph, results='hide'}
+collab_graph <- print(net$graph) #igraph class
+collab_communities <- print(net$cluster_obj) #community class
+collab_clusters <- print(net$cluster_res) #data frame class
+biblio_edge <- as_data_frame(collab_graph, what="edges") #inspecting edges
+biblio_vertex <- as_data_frame(collab_graph, what="vertices") #inspecting vertices
+collab_graph <- delete_vertices(collab_graph, "notreported") #filter NA values
+save(biblio_edge, file = "./data/biblio_edge.RData") #save this file to use in chord diagram later
+```
+
+Plot for clarity of groupings using fruchterman-reingold layout
+```{r network-groupings, fig.height=9.5, fig.width=11, dev='png'}
+plot(collab_graph,
+     vertex.label=NA, #leave off labels
+     edge.curved=0.2, #curve range for edges
+     arrow.mode=2, #arrows going forward
+     layout=layout_with_fr)
+```
+Plot for clarity of labels
+```{r network-labels, warning=FALSE, message=FALSE, fig.height=9.5, fig.width=11, dev='png'}
+plot(collab_graph,
+     vertex.label.font=2, #label font bold
+     vertex.label.cex=1, #label font size
+     vertex.label.distance=1, #sets label distance from vertex
+     edge.curved=0.2, #curve range for edges
+     arrow.mode=2, #arrows going forward
+     layout=layout_nicely)
+```
+References at [Dave Tang](https://davetang.org/muse/2017/03/16/matrix-to-adjacency-list-in-r/) and [Katherine Ognyanova](https://kateto.net/netscix2016.html)
+
+Clean environment before next section
+```{r clean-affiliations}
+rm(list = ls())
+```
+
+## Topics in mp
+Initial bibliometrix network plot.  Labels aren't clear and clusters aren't defined. 
+```{r setup-topics}
+load(file = "./data/bib.RData") #load the bibliometrix object
+
+NetMatrix <- biblioNetwork(bib, analysis = "co-occurrences", network = "author_keywords", sep = ";") #create keyword network
+net <- networkPlot(NetMatrix, normalize="association", n = 30, Title = "Keyword Co-occurrences", type = "fruchterman", size.cex=TRUE, size=20, remove.multiple=F, edgesize = 10, edges.min=2) #plot keyword networks
+```
+
+### Early research (1970-1999)
+Extracting and cleaning author keywords from 1970-2009 in bibtex data.
+```{r topics-early}
+#processing keywords data
+bib_early <- subset(bib, PY<2010) #subsetting bib for research 1970-2009
+head(bib_early$DE) #check data
+words_early <- bib_early$DE #assign data
+words_early <- unlist(strsplit(words_early, ";")) #split the records into individual keywords
+words_early <- words_early[order(words_early)] #order alphabetically
+words_early <- gsub("^\\s+|\\s+$", "", words_early) #trim white space
+word_table_early <- table(words_early) #determine frequency of words
+word_table_early <- as.data.frame(word_table_early) #transform to df
+
+#rename the count to freq for the wordcloud
+colnames(word_table_early)[colnames(word_table_early) == "words_early"] <- "word" #rename for wordcloud2
+colnames(word_table_early)[colnames(word_table_early) == "Freq"] <- "freq" #rename for wordcloud2
+word_table_early <- word_table_early %>% dplyr::filter(freq>4) #remove low values
+
+ #writing wordcloud graphic
+  wc_early <- wordcloud2(word_table_early, shape='rectangle')
+  wc_early
+```
+### Recent research (2010-2019)
+Extracting and cleaning author keywords from 2010-2019 in bibtex data.
+```{r topics-recent}
+bib_recent <- subset(bib, PY>2009) #subsetting bib for research 2010-2019
+head(bib_recent$DE) #check data
+words_recent <- bib_recent$DE #assign data
+words_recent <- unlist(strsplit(words_recent, ";")) #split the records into individual keywords
+words_recent <- words_recent[order(words_recent)] #order alphabetically
+words_recent <- gsub("^\\s+|\\s+$", "", words_recent) #trim white space
+word_table_recent <- table(words_recent) #determine frequency of words
+word_table_recent <- as.data.frame(word_table_recent) #transform to df
+
+#rename the count to freq for the wordcloud
+colnames(word_table_recent)[colnames(word_table_recent) == "words_recent"] <- "word" #rename for wordcloud2
+colnames(word_table_recent)[colnames(word_table_recent) == "Freq"] <- "freq" #rename for wordcloud2
+word_table_recent <- word_table_recent %>% dplyr::filter(freq>4)  #remove low values
+
+ #writing wordcloud graphic
+  wc_recent <- wordcloud2(word_table_recent, shape="rectangle")
+  wc_recent
+```
+Saving wordcloud graphics
+```{r save-graphics, eval=FALSE}
+#saving widgets
+  saveWidget(wc_early,"wordcloud_early.html",selfcontained = F)
+  webshot::webshot("wordcloud_early.html","wordcloud_early.png",vwidth = 1992, vheight = 1744, delay = 60)
+  saveWidget(wc_recent,"wordcloud_recent.html",selfcontained = F)
+  webshot::webshot("wordcloud_recent.html","wordcloud_recent.png",vwidth = 1992, vheight = 1744, delay = 60)
+
+  write.csv(word_table_early, "output/word_table_early.csv", row.names = FALSE) #save this data frame as a csv file
+  write.csv(word_table_recent, "output/word_table_recent.csv", row.names = FALSE) #save this data frame as a csv file
+```
+Clean environment before next section.
+```{r clean-wordcloud}
+rm(list = ls()) #clean environment
+```
+## Chord diagram progress
+I was experimenting with chord diagrams but I never quite achieved it.  Here are a few examples of the visualisation.  I would need to process the data and the output more before they are meaningful.
+
+### Bibliographic Coupling
+```{r bib-coupling}
+load(file = "./data/bib.RData") #load bibtex from an RData file
+
+NetMatrix <- biblioNetwork(bib, analysis = "coupling", network = "authors", sep = ";") #artciles as nodes and shared references are edges
+net = networkPlot(NetMatrix, weighted = NULL, n = 20, Title = "Authors' bibliographic coupling", label.n=10, type = "fruchterman", size = 10, cluster="walktrap", remove.multiple = TRUE, labelsize = 0.8)
+
+#isolating the elements of networkPlot in order to modify them
+coupling_graph <- print(net$graph) #igraph class
+plot(coupling_graph, edge.arrow.size=.2, edge.curved=1)
+```
+```{r bib-coupling-chord, warning=FALSE, message=FALSE}
+#inspecting edge and vertex attributes
+biblio_edge <- as_data_frame(coupling_graph, what="edges")
+biblio_vertex <- as_data_frame(coupling_graph, what="vertices")
+
+chordDiagram(biblio_edge,
+             transparency =0.25,
+             direction.type="diffHeight", #showing direction of connection
+             diffHeight = -0.05)
+```
+
+```{r affiliations-chord, warning=FALSE, message=FALSE}
+load(file = "./data/biblio_edge.RData") #load affiliation collabs
+#attempt to group affiliations by cluster
+chord_edge <- biblio_edge %>%
+  arrange(desc(num)) %>%
+  top_n(15)  #choose top 15 connections for graphing
+
+#plot chord diagram
+chordDiagram(chord_edge)
+```
+The labels on this plot are ridiculous...  I was working on a circos text tutorial at [Circlize](https://www.rdocumentation.org/packages/circlize/versions/0.4.10/topics/circos.text)
+
+Here's a cleaner plot without labels.
+```{r affiliations-chord-clean, warning=FALSE, message=FALSE}
+chordDiagram(chord_edge,
+             transparency = 0.25,
+             directional=1,
+             direction.type="diffHeight",
+             diffHeight = -0.05,
+             annotationTrack = "grid",
+             preAllocateTracks = 1)
+```
+Without the labels it looks cleaner, but it is still not grouped.  I was attempting to group by research cluster using the grouping example at [jokergoo.github](https://jokergoo.github.io/circlize_book/book/advanced-usage-of-chorddiagram.html#multiple-group-chord-diagram)
+
+Chord Diagrams are beautiful graphs, but not intuitive to understand.  Here's an example of how to communicate chord diagrams at [VisualCinnamon](https://www.visualcinnamon.com/2014/12/using-data-storytelling-with-chord.html)
