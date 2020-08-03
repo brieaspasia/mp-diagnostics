@@ -293,7 +293,24 @@ load(file = "./data/bib.RData") #load the bibliometrix object
 NetMatrix <- biblioNetwork(bib, analysis = "co-occurrences", network = "author_keywords", sep = ";") #create keyword network
 net <- networkPlot(NetMatrix, normalize="association", n = 30, Title = "Keyword Co-occurrences", type = "fruchterman", size.cex=TRUE, size=20, remove.multiple=F, edgesize = 10, edges.min=2) #plot keyword networks
 ```
+```{r topics-total}
+#processing keywords data
+head(bib$DE) #check data
+words_total <- bib$DE #assign data
+words_total <- unlist(strsplit(words_total, ";")) #split the records into individual keywords
+words_total <- words_total[order(words_total)] #order alphabetically
+words_total <- gsub("^\\s+|\\s+$", "", words_total) #trim white space
+word_table_total <- table(words_total) #determine frequency of words
+word_table_total <- as.data.frame(word_table_total) #transform to df
 
+#rename the count to freq for the wordcloud
+colnames(word_table_total)[colnames(word_table_total) == "words_early"] <- "word" #rename for wordcloud2
+colnames(word_table_total)[colnames(word_table_total) == "Freq"] <- "freq" #rename for wordcloud2
+
+ #writing wordcloud graphic
+  wc_total <- wordcloud2(word_table_total, shape='rectangle')
+  wc_total
+```
 ### Early research (1970-1999)
 Extracting and cleaning author keywords from 1970-2009 in bibtex data.
 ```{r topics-early}
@@ -347,6 +364,7 @@ Saving wordcloud graphics
 
   write.csv(word_table_early, "output/word_table_early.csv", row.names = FALSE) #save this data frame as a csv file
   write.csv(word_table_recent, "output/word_table_recent.csv", row.names = FALSE) #save this data frame as a csv file
+   write.csv(word_table_total, "output/word_table_total.csv", row.names = FALSE) #save this data frame as a csv file
 ```
 Clean environment before next section.
 ```{r clean-wordcloud}
