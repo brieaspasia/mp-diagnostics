@@ -133,6 +133,20 @@ topAU_plot + #clean up graph output
 #save output into png graphic
 ggsave(filename="figures/authprod_per_year.png", width=11, height=9.5, units ="in")
 ```
+### Top cited authors
+```{r  most cited authors, eval=TRUE}
+mostcitedA <- citations(bib, field = "author", sep = ";") #extract most cited authors
+topcitedA <- cbind(mostcitedA$Cited[1:20], mostcitedA$Year[1:20]) #create matrix of top 20
+topcitedA <- as.data.frame(topcitedA) #matrix to df
+topcitedA <- setDT(topcitedA, keep.rownames = "Authors") #transform rownames to first column
+
+rmarkdown::paged_table(topcitedA) %>% #print clean table
+kable("html", col.names = c("Author", "Total Citations")) %>% 
+  kable_styling() %>%
+  scroll_box()
+```
+There is very little overlap between the top producing authors and the top cited authors.
+
 Clean environment before next section
 ```{r clean-bib}
 rm(list = ls())
