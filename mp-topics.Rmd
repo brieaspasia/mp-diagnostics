@@ -32,6 +32,29 @@ bib <- convert2df(file = c("./data/scopus2015-2017.bib"), dbsource = "scopus", f
 save(bib, file = "./data/bib.RData") #save this data frame as a RData file (object)
 load(file = "./data/bib.RData") #to load this data frame from a RData file (returns an object named "bib")
 ```
+
+```{r author-keywords, eval=TRUE}
+head(bib$DE) #inspect author keywords
+keywords <- bib$DE #assign author keywords
+keywords <- unlist(strsplit(keywords, ";")) #split the records
+keywords <- keywords[order(keywords)] #order alphabetically
+keywords <- gsub("^\\s+|\\s+$", "", keywords) #trim white space
+
+keytable <- table(keywords) #determine frequency of words
+keytable <- as.data.frame(keytable) #transform to df
+
+#rename the count to freq for the wordcloud
+colnames(keytable)[colnames(keytable) == "keywords"] <- "word" #rename for wordcloud2
+colnames(keytable)[colnames(keytable) == "Freq"] <- "freq" #rename for wordcloud2
+
+ #saving wordcloud graphic
+  wc_total <- wordcloud2(filter(keytable, freq>4), shape='rectangle')
+  saveWidget(wc_recent,"wordcloud_recent.html",selfcontained = F)
+  webshot::webshot("wordcloud_recent.html","wordcloud_recent.png",vwidth = 1992, vheight = 1744, delay = 60)
+
+```
+
+
 ##Early marine pollution research (1970-2009)
 ```{r networks bib_early}
 #subsetting for early research
@@ -59,6 +82,10 @@ V(gD_early) #prints the list of vertices (keywords)
 E(gD_early) #prints the list of edges (relationships)
 degree_early <- degree(gD_early) #print the number of edges per vertex (relationships per keyword)
 hist(degree_early, breaks=1000)
+
+?hist
+
+class(degree_early)
 
 #creating df for wordcloud
   cloud_plot_early <- as.data.frame(degree_early)
